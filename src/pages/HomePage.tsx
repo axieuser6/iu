@@ -42,21 +42,26 @@ const HomePage: React.FC = () => {
     onConnect: useCallback(() => {
       console.log('🔗 Connected to Axie Studio AI Assistant');
       
-      // Send user information as first message
-      if (userInfo) {
-        const userMessage = `Hej! Mitt namn är ${userInfo.firstName} ${userInfo.lastName} och min e-post är ${userInfo.email}. Jag har godkänt villkoren och är redo att börja samtalet.`;
-        console.log('📤 Sending user info to AI:', userMessage);
-        
-        // Send the message to the AI agent
-        setTimeout(() => {
-          conversation.sendMessage?.(userMessage);
-        }, 500); // Small delay to ensure connection is stable
-      }
-      
       setIsSecureConnection(true);
       setConnectionAttempts(0);
       setCallStartTime(Date.now());
       setIsStartingCall(false);
+      
+      // Send user information as first message after connection is established
+      if (userInfo) {
+        const userMessage = `Hej! Mitt namn är ${userInfo.firstName} ${userInfo.lastName} och min e-post är ${userInfo.email}. Jag har godkänt villkoren och är redo att börja samtalet.`;
+        console.log('📤 Sending user info to AI agent:', userMessage);
+        
+        // Send the message to the AI agent with proper delay
+        setTimeout(() => {
+          if (conversation.sendMessage) {
+            conversation.sendMessage(userMessage);
+            console.log('✅ User info sent successfully to AI agent');
+          } else {
+            console.error('❌ sendMessage function not available');
+          }
+        }, 1000); // Increased delay to ensure stable connection
+      }
     }, [userInfo]),
     onDisconnect: useCallback(() => {
       console.log('🔌 Disconnected from Axie Studio AI Assistant');
