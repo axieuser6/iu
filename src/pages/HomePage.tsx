@@ -12,7 +12,7 @@ interface GetInfoResult {
   name: string;
   success: boolean;
   message: string;
-}</parameter>
+}
 
 // Constants for better performance
 const CONNECTION_TIMEOUT = 8000;
