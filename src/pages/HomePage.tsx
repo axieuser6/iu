@@ -6,6 +6,14 @@ import StatusIndicators from '../components/StatusIndicators';
 import PermissionWarning from '../components/PermissionWarning';
 import UserInfoForm from '../components/UserInfoForm';
 
+// Client tool result interface
+interface GetInfoResult {
+  email: string;
+  name: string;
+  success: boolean;
+  message: string;
+}</parameter>
+
 // Constants for better performance
 const CONNECTION_TIMEOUT = 8000;
 const RETRY_ATTEMPTS = 3;
@@ -26,6 +34,31 @@ const HomePage: React.FC = () => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isStartingCall, setIsStartingCall] = useState(false);
 
+  // Client tool: get_info - Provides user information to the agent
+  const get_info = useCallback(async (): Promise<GetInfoResult> => {
+    console.log('🔧 Agent requested user info via get_info tool');
+    
+    if (!userInfo) {
+      console.log('❌ No user info available for get_info tool');
+      return {
+        email: '',
+        name: '',
+        success: false,
+        message: 'User information not available'
+      };
+    }
+
+    const result = {
+      email: userInfo.email,
+      name: `${userInfo.firstName} ${userInfo.lastName}`,
+      success: true,
+      message: 'User information retrieved successfully'
+    };
+
+    console.log('✅ Returning user info to agent:', result);
+    return result;
+  }, [userInfo]);
+
   // Memoized agent ID with validation
   const agentId = useMemo(() => {
     const id = import.meta.env.VITE_AXIE_STUDIO_AGENT_ID || import.meta.env.VITE_ELEVENLABS_AGENT_ID;
@@ -39,6 +72,7 @@ const HomePage: React.FC = () => {
 
   // Enhanced conversation configuration
   const conversation = useConversation({
+    clientTools: { get_info },
     onConnect: useCallback(() => {
       console.log('🔗 Connected to Axie Studio AI Assistant');
       
@@ -158,17 +192,9 @@ const HomePage: React.FC = () => {
     console.log('🚀 Starting secure session...');
     
     try {
-      // Prepare initial message with user information
-      const initialMessage = userInfo 
-        ? `Hej! Mitt namn är ${userInfo.firstName} ${userInfo.lastName} och min e-post är ${userInfo.email}. Jag har godkänt villkoren och är redo att börja samtalet med Axie Studio.`
-        : undefined;
-
-      console.log('📤 Preparing to send user info to agent:', initialMessage);
-
       const sessionPromise = conversation.startSession({
         agentId: agentId,
-        connectionType: 'webrtc',
-        ...(initialMessage && { initialMessage })
+        connectionType: 'webrtc'
       });
 
       // Add timeout for connection
@@ -178,10 +204,7 @@ const HomePage: React.FC = () => {
 
       await Promise.race([sessionPromise, timeoutPromise]);
       console.log('✅ Axie Studio session started successfully');
-      
-      if (initialMessage) {
-        console.log('✅ User information sent to agent as initial message');
-      }
+      console.log('🔧 Agent can now call get_info tool to retrieve user information');
       
     } catch (error) {
       console.error('❌ Failed to start Axie Studio session:', error);
