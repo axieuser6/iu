@@ -47,35 +47,6 @@ const HomePage: React.FC = () => {
       setCallStartTime(Date.now());
       setIsStartingCall(false);
       
-      // Send user information as first message after connection is established
-      if (userInfo) {
-        const userMessage = `Hej! Mitt namn är ${userInfo.firstName} ${userInfo.lastName} och min e-post är ${userInfo.email}. Jag har godkänt villkoren och är redo att börja samtalet.`;
-        console.log('📤 Sending user info to AI agent:', userMessage);
-        
-        // Send the message to the AI agent immediately after connection
-        console.log('🔍 Available conversation methods:', Object.keys(conversation));
-        console.log('🔍 Conversation status:', conversation.status);
-        
-        // Try multiple approaches to send the message
-        const sendUserInfo = () => {
-          try {
-            if (typeof conversation.sendUserMessage === 'function') {
-              conversation.sendUserMessage(userMessage);
-              console.log('✅ User info sent via sendUserMessage:', userMessage);
-            } else {
-              console.error('❌ sendUserMessage method not available');
-              console.log('🔍 Conversation object:', conversation);
-            }
-          } catch (error) {
-            console.error('❌ Error sending user info to agent:', error);
-          }
-        };
-        
-        // Send immediately and also with delay as backup
-        sendUserInfo();
-        setTimeout(sendUserInfo, 500);
-        setTimeout(sendUserInfo, 1500);
-      }
     }, [userInfo]),
     onDisconnect: useCallback(() => {
       console.log('🔌 Disconnected from Axie Studio AI Assistant');
@@ -187,9 +158,17 @@ const HomePage: React.FC = () => {
     console.log('🚀 Starting secure session...');
     
     try {
+      // Prepare initial message with user information
+      const initialMessage = userInfo 
+        ? `Hej! Mitt namn är ${userInfo.firstName} ${userInfo.lastName} och min e-post är ${userInfo.email}. Jag har godkänt villkoren och är redo att börja samtalet med Axie Studio.`
+        : undefined;
+
+      console.log('📤 Preparing to send user info to agent:', initialMessage);
+
       const sessionPromise = conversation.startSession({
         agentId: agentId,
-        connectionType: 'webrtc'
+        connectionType: 'webrtc',
+        ...(initialMessage && { initialMessage })
       });
 
       // Add timeout for connection
@@ -199,6 +178,10 @@ const HomePage: React.FC = () => {
 
       await Promise.race([sessionPromise, timeoutPromise]);
       console.log('✅ Axie Studio session started successfully');
+      
+      if (initialMessage) {
+        console.log('✅ User information sent to agent as initial message');
+      }
       
     } catch (error) {
       console.error('❌ Failed to start Axie Studio session:', error);
@@ -210,7 +193,7 @@ const HomePage: React.FC = () => {
         setTimeout(() => startSession(), 1000);
       }
     }
-  }, [agentId, conversation, connectionAttempts]);
+  }, [agentId, conversation, connectionAttempts, userInfo]);
 
   // Optimized session end with cleanup
   const handleEndSession = useCallback(async () => {
