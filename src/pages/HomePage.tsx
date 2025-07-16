@@ -52,17 +52,34 @@ const HomePage: React.FC = () => {
         const userMessage = `Hej! Mitt namn är ${userInfo.firstName} ${userInfo.lastName} och min e-post är ${userInfo.email}. Jag har godkänt villkoren och är redo att börja samtalet.`;
         console.log('📤 Sending user info to AI agent:', userMessage);
         
-        // Send the message to the AI agent with proper delay
-        setTimeout(() => {
-          if (conversation.sendMessage) {
-            conversation.sendMessage(userMessage);
-            console.log('✅ User info sent successfully to AI agent');
-          } else {
-            console.error('❌ sendMessage function not available');
+        // Send the message to the AI agent immediately after connection
+        console.log('🔍 Available conversation methods:', Object.keys(conversation));
+        console.log('🔍 Conversation status:', conversation.status);
+        
+        // Try multiple approaches to send the message
+        const sendUserInfo = () => {
+          try {
+            if (typeof conversation.sendMessage === 'function') {
+              conversation.sendMessage(userMessage);
+              console.log('✅ User info sent via sendMessage:', userMessage);
+            } else if (typeof conversation.speak === 'function') {
+              conversation.speak(userMessage);
+              console.log('✅ User info sent via speak:', userMessage);
+            } else {
+              console.error('❌ No available method to send message to agent');
+              console.log('🔍 Conversation object:', conversation);
+            }
+          } catch (error) {
+            console.error('❌ Error sending user info to agent:', error);
           }
-        }, 1000); // Increased delay to ensure stable connection
+        };
+        
+        // Send immediately and also with delay as backup
+        sendUserInfo();
+        setTimeout(sendUserInfo, 500);
+        setTimeout(sendUserInfo, 1500);
       }
-    }, [userInfo]),
+    }, [userInfo, conversation]),
     onDisconnect: useCallback(() => {
       console.log('🔌 Disconnected from Axie Studio AI Assistant');
       setIsSecureConnection(false);
