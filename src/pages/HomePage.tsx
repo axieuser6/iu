@@ -59,14 +59,11 @@ const HomePage: React.FC = () => {
         // Try multiple approaches to send the message
         const sendUserInfo = () => {
           try {
-            if (typeof conversation.sendMessage === 'function') {
-              conversation.sendMessage(userMessage);
-              console.log('✅ User info sent via sendMessage:', userMessage);
-            } else if (typeof conversation.speak === 'function') {
-              conversation.speak(userMessage);
-              console.log('✅ User info sent via speak:', userMessage);
+            if (typeof conversation.sendUserMessage === 'function') {
+              conversation.sendUserMessage(userMessage);
+              console.log('✅ User info sent via sendUserMessage:', userMessage);
             } else {
-              console.error('❌ No available method to send message to agent');
+              console.error('❌ sendUserMessage method not available');
               console.log('🔍 Conversation object:', conversation);
             }
           } catch (error) {
