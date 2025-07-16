@@ -1,14 +1,20 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useConversation } from '@elevenlabs/react';
-import { Mic, MicOff, Phone, PhoneOff, Shield } from 'lucide-react';
-import TermsPopup from '../components/TermsPopup';
+import { Shield } from 'lucide-react';
 import VoiceOrb from '../components/VoiceOrb';
 import StatusIndicators from '../components/StatusIndicators';
 import PermissionWarning from '../components/PermissionWarning';
+import UserInfoForm from '../components/UserInfoForm';
 
 // Constants for better performance
 const CONNECTION_TIMEOUT = 8000;
 const RETRY_ATTEMPTS = 3;
+
+interface UserInfo {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
 
 const HomePage: React.FC = () => {
   // State management with proper typing
@@ -16,44 +22,9 @@ const HomePage: React.FC = () => {
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const [isSecureConnection, setIsSecureConnection] = useState(false);
-  const [showTermsModal, setShowTermsModal] = useState(false);
-  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
-
-  // Check terms acceptance on mount
-  useEffect(() => {
-    const checkTermsAcceptance = () => {
-      try {
-        const storedConsent = localStorage.getItem('axie_studio_terms_consent');
-        if (storedConsent) {
-          const consentData = JSON.parse(storedConsent);
-          const isValid = consentData.accepted && consentData.timestamp;
-          
-          // Check if consent is less than 1 year old
-          const consentDate = new Date(consentData.timestamp);
-          const oneYearAgo = new Date();
-          oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-          
-          if (isValid && consentDate > oneYearAgo) {
-            setHasAcceptedTerms(true);
-            console.log('✅ Valid terms consent found');
-          } else {
-            console.log('⚠️ Terms consent expired or invalid');
-            localStorage.removeItem('axie_studio_terms_consent');
-            setHasAcceptedTerms(false);
-          }
-        } else {
-          console.log('ℹ️ No terms consent found');
-          setHasAcceptedTerms(false);
-        }
-      } catch (error) {
-        console.error('❌ Error checking terms consent:', error);
-        setHasAcceptedTerms(false);
-      }
-    };
-
-    checkTermsAcceptance();
-  }, []);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [isStartingCall, setIsStartingCall] = useState(false);
 
   // Memoized agent ID with validation
   const agentId = useMemo(() => {
@@ -70,14 +41,47 @@ const HomePage: React.FC = () => {
   const conversation = useConversation({
     onConnect: useCallback(() => {
       console.log('🔗 Connected to Axie Studio AI Assistant');
+      
       setIsSecureConnection(true);
       setConnectionAttempts(0);
       setCallStartTime(Date.now());
-    }, []),
+      setIsStartingCall(false);
+      
+      // Send user information as first message after connection is established
+      if (userInfo) {
+        const userMessage = `Hej! Mitt namn är ${userInfo.firstName} ${userInfo.lastName} och min e-post är ${userInfo.email}. Jag har godkänt villkoren och är redo att börja samtalet.`;
+        console.log('📤 Sending user info to AI agent:', userMessage);
+        
+        // Send the message to the AI agent immediately after connection
+        console.log('🔍 Available conversation methods:', Object.keys(conversation));
+        console.log('🔍 Conversation status:', conversation.status);
+        
+        // Try multiple approaches to send the message
+        const sendUserInfo = () => {
+          try {
+            if (typeof conversation.sendUserMessage === 'function') {
+              conversation.sendUserMessage(userMessage);
+              console.log('✅ User info sent via sendUserMessage:', userMessage);
+            } else {
+              console.error('❌ sendUserMessage method not available');
+              console.log('🔍 Conversation object:', conversation);
+            }
+          } catch (error) {
+            console.error('❌ Error sending user info to agent:', error);
+          }
+        };
+        
+        // Send immediately and also with delay as backup
+        sendUserInfo();
+        setTimeout(sendUserInfo, 500);
+        setTimeout(sendUserInfo, 1500);
+      }
+    }, [userInfo]),
     onDisconnect: useCallback(() => {
       console.log('🔌 Disconnected from Axie Studio AI Assistant');
       setIsSecureConnection(false);
       setCallStartTime(null);
+      setIsStartingCall(false);
     }, []),
     onMessage: useCallback((message) => {
       console.log('💬 Message received:', message);
@@ -85,6 +89,8 @@ const HomePage: React.FC = () => {
     onError: useCallback((error) => {
       console.error('❌ Connection error:', error);
       setIsSecureConnection(false);
+      
+      setIsStartingCall(false);
       
       // Auto-retry logic for better reliability
       if (connectionAttempts < RETRY_ATTEMPTS) {
@@ -126,15 +132,55 @@ const HomePage: React.FC = () => {
     }
   }, [isRequestingPermission]);
 
-  // Enhanced session management
-  const handleStartSession = useCallback(async () => {
-    if (!agentId) {
-      console.error('❌ Cannot start session: Axie Studio Agent ID missing');
-      return;
+  // Handle user info form submission
+  const handleUserInfoSubmit = useCallback(async (info: UserInfo) => {
+    console.log('👤 User info submitted:', info);
+    setUserInfo(info);
+    setIsStartingCall(true);
+    
+    // Send to webhook
+    try {
+      const webhookUrl = 'https://stefan0987.app.n8n.cloud/webhook/803738bb-c134-4bdb-9720-5b1af902475f';
+      
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          first_name: info.firstName,
+          last_name: info.lastName,
+          email: info.email,
+          full_name: `${info.firstName} ${info.lastName}`,
+          timestamp: new Date().toISOString(),
+          source: 'pre_call_form_submission',
+          prompt: 'User submitted information before starting AI call'
+        })
+      });
+      
+      console.log('✅ User info sent to webhook');
+    } catch (error) {
+      console.error('❌ Failed to send user info to webhook:', error);
     }
-
+    
+    // Check microphone permission first
     if (!hasPermission) {
       await requestMicrophonePermission();
+      if (!hasPermission) {
+        setIsStartingCall(false);
+        return;
+      }
+    }
+    
+    // Start the session
+    await startSession();
+  }, [hasPermission, requestMicrophonePermission]);
+
+  // Enhanced session management
+  const startSession = useCallback(async () => {
+    if (!agentId) {
+      console.error('❌ Cannot start session: Axie Studio Agent ID missing');
+      setIsStartingCall(false);
       return;
     }
 
@@ -156,49 +202,15 @@ const HomePage: React.FC = () => {
       
     } catch (error) {
       console.error('❌ Failed to start Axie Studio session:', error);
+      setIsStartingCall(false);
       
       // Auto-retry on failure
       if (connectionAttempts < RETRY_ATTEMPTS) {
         setConnectionAttempts(prev => prev + 1);
-        setTimeout(() => handleStartSession(), 1000);
+        setTimeout(() => startSession(), 1000);
       }
     }
-  }, [agentId, hasPermission, requestMicrophonePermission, conversation, connectionAttempts]);
-
-  // Handle initial call button click
-  const handleInitialCallClick = useCallback(async () => {
-    // Check terms acceptance first
-    if (!hasAcceptedTerms) {
-      console.log('📋 Terms not accepted, showing terms modal');
-      setShowTermsModal(true);
-      return;
-    }
-
-    // Directly start session if terms already accepted
-    await handleStartSession();
-  }, [hasAcceptedTerms, handleStartSession]);
-
-  // Handle terms acceptance
-  const handleTermsAccept = useCallback(() => {
-    console.log('✅ Terms and conditions accepted');
-    setHasAcceptedTerms(true);
-    setShowTermsModal(false);
-    
-    // Directly start the session after terms acceptance
-    setTimeout(() => {
-      handleStartSession();
-    }, 100);
-  }, [handleStartSession]);
-
-  // Handle terms decline
-  const handleTermsDecline = useCallback(() => {
-    console.log('❌ Terms and conditions declined');
-    setShowTermsModal(false);
-    setHasAcceptedTerms(false);
-    
-    // Show user-friendly message
-    alert('Du måste acceptera våra villkor för att använda Axie Studio AI Röstassistent.');
-  }, []);
+  }, [agentId, conversation, connectionAttempts]);
 
   // Optimized session end with cleanup
   const handleEndSession = useCallback(async () => {
@@ -212,6 +224,8 @@ const HomePage: React.FC = () => {
     } finally {
       setIsSecureConnection(false);
       setConnectionAttempts(0);
+      setUserInfo(null);
+      setIsStartingCall(false);
     }
   }, [conversation]);
 
@@ -252,15 +266,20 @@ const HomePage: React.FC = () => {
 
   const { isConnected, isConnecting } = connectionStatus;
 
+  // Show form if user hasn't submitted info yet
+  if (!userInfo && !isConnected) {
+    return (
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8">
+        <UserInfoForm 
+          onSubmit={handleUserInfoSubmit}
+          isSubmitting={isStartingCall}
+        />
+      </div>
+    );
+  }
+
   return (
     <>
-      {/* Terms and Conditions Popup */}
-      <TermsPopup
-        isOpen={showTermsModal}
-        onAccept={handleTermsAccept}
-        onDecline={handleTermsDecline}
-      />
-
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8">
         <div className="text-center w-full max-w-lg">
@@ -271,7 +290,7 @@ const HomePage: React.FC = () => {
             isSpeaking={conversation.isSpeaking}
             hasPermission={hasPermission}
             connectionAttempts={connectionAttempts}
-            onCallClick={isConnected ? handleEndSession : handleInitialCallClick}
+            onCallClick={handleEndSession}
           />
 
           <StatusIndicators
