@@ -3,6 +3,7 @@ import { useConversation } from '@elevenlabs/react';
 import { Mic, MicOff, Phone, PhoneOff, Mail, X, Shield } from 'lucide-react';
 import EmailPopup from './components/EmailPopup';
 import NamePopup from './components/NamePopup';
+import TermsPopup from './components/TermsPopup';
 
 // Types for better type safety
 interface EmailCaptureParams {
@@ -45,9 +46,46 @@ function App() {
   const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const [isSecureConnection, setIsSecureConnection] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   const [emailCaptureResolver, setEmailCaptureResolver] = useState<((result: EmailCaptureResult) => void) | null>(null);
   const [nameCaptureResolver, setNameCaptureResolver] = useState<((result: NameCaptureResult) => void) | null>(null);
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
+
+  // Check terms acceptance on mount
+  useEffect(() => {
+    const checkTermsAcceptance = () => {
+      try {
+        const storedConsent = localStorage.getItem('axie_studio_terms_consent');
+        if (storedConsent) {
+          const consentData = JSON.parse(storedConsent);
+          const isValid = consentData.accepted && consentData.timestamp;
+          
+          // Check if consent is less than 1 year old
+          const consentDate = new Date(consentData.timestamp);
+          const oneYearAgo = new Date();
+          oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+          
+          if (isValid && consentDate > oneYearAgo) {
+            setHasAcceptedTerms(true);
+            console.log('✅ Valid terms consent found');
+          } else {
+            console.log('⚠️ Terms consent expired or invalid');
+            localStorage.removeItem('axie_studio_terms_consent');
+            setHasAcceptedTerms(false);
+          }
+        } else {
+          console.log('ℹ️ No terms consent found');
+          setHasAcceptedTerms(false);
+        }
+      } catch (error) {
+        console.error('❌ Error checking terms consent:', error);
+        setHasAcceptedTerms(false);
+      }
+    };
+
+    checkTermsAcceptance();
+  }, []);
 
   // Memoized agent ID with validation
   const agentId = useMemo(() => {
@@ -227,6 +265,13 @@ function App() {
 
   // Enhanced session management with timeout and retry logic
   const handleStartSession = useCallback(async () => {
+    // Check terms acceptance first
+    if (!hasAcceptedTerms) {
+      console.log('📋 Terms not accepted, showing terms modal');
+      setShowTermsModal(true);
+      return;
+    }
+
     if (!agentId) {
       console.error('❌ Cannot start session: Axie Studio Agent ID missing');
       return;
@@ -263,6 +308,28 @@ function App() {
       }
     }
   }, [agentId, hasPermission, requestMicrophonePermission, conversation, connectionAttempts]);
+
+  // Handle terms acceptance
+  const handleTermsAccept = useCallback(() => {
+    console.log('✅ Terms and conditions accepted');
+    setHasAcceptedTerms(true);
+    setShowTermsModal(false);
+    
+    // Automatically start session after terms acceptance
+    setTimeout(() => {
+      handleStartSession();
+    }, 100);
+  }, [handleStartSession]);
+
+  // Handle terms decline
+  const handleTermsDecline = useCallback(() => {
+    console.log('❌ Terms and conditions declined');
+    setShowTermsModal(false);
+    setHasAcceptedTerms(false);
+    
+    // Show user-friendly message
+    alert('Du måste acceptera våra villkor för att använda Axie Studio AI Röstassistent.');
+  }, []);
 
   // Optimized session end with cleanup
   const handleEndSession = useCallback(async () => {
@@ -458,6 +525,13 @@ function App() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
+      {/* Terms and Conditions Popup */}
+      <TermsPopup
+        isOpen={showTermsModal}
+        onAccept={handleTermsAccept}
+        onDecline={handleTermsDecline}
+      />
+
       {/* Email Popup Component */}
       <EmailPopup
         isOpen={showEmailModal}
