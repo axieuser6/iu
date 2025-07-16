@@ -263,8 +263,8 @@ function App() {
       return;
     }
 
-    // Show data collection form
-    setShowDataForm(true);
+    // Directly start session if terms already accepted
+    await handleStartSession();
   }, [hasAcceptedTerms]);
 
   // Handle terms acceptance
@@ -273,9 +273,9 @@ function App() {
     setHasAcceptedTerms(true);
     setShowTermsModal(false);
     
-    // Show data form after terms acceptance
+    // Directly start the session after terms acceptance
     setTimeout(() => {
-      setShowDataForm(true);
+      handleStartSession();
     }, 100);
   }, []);
 
