@@ -3,6 +3,7 @@ import { useConversation } from '@elevenlabs/react';
 import { Mic, MicOff, Phone, PhoneOff, Mail, X, Shield } from 'lucide-react';
 import EmailPopup from './components/EmailPopup';
 import NamePopup from './components/NamePopup';
+import TermsPopup from './components/TermsPopup';
 
 // Types for better type safety
 interface EmailCaptureParams {
@@ -45,28 +46,65 @@ function App() {
   const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const [isSecureConnection, setIsSecureConnection] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   const [emailCaptureResolver, setEmailCaptureResolver] = useState<((result: EmailCaptureResult) => void) | null>(null);
   const [nameCaptureResolver, setNameCaptureResolver] = useState<((result: NameCaptureResult) => void) | null>(null);
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
 
+  // Check terms acceptance on mount
+  useEffect(() => {
+    const checkTermsAcceptance = () => {
+      try {
+        const storedConsent = localStorage.getItem('axie_studio_terms_consent');
+        if (storedConsent) {
+          const consentData = JSON.parse(storedConsent);
+          const isValid = consentData.accepted && consentData.timestamp;
+          
+          // Check if consent is less than 1 year old
+          const consentDate = new Date(consentData.timestamp);
+          const oneYearAgo = new Date();
+          oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+          
+          if (isValid && consentDate > oneYearAgo) {
+            setHasAcceptedTerms(true);
+            console.log('✅ Valid terms consent found');
+          } else {
+            console.log('⚠️ Terms consent expired or invalid');
+            localStorage.removeItem('axie_studio_terms_consent');
+            setHasAcceptedTerms(false);
+          }
+        } else {
+          console.log('ℹ️ No terms consent found');
+          setHasAcceptedTerms(false);
+        }
+      } catch (error) {
+        console.error('❌ Error checking terms consent:', error);
+        setHasAcceptedTerms(false);
+      }
+    };
+
+    checkTermsAcceptance();
+  }, []);
+
   // Memoized agent ID with validation
   const agentId = useMemo(() => {
-    const id = import.meta.env.VITE_ELEVENLABS_AGENT_ID;
+    const id = import.meta.env.VITE_AXIE_STUDIO_AGENT_ID || import.meta.env.VITE_ELEVENLABS_AGENT_ID;
     if (!id) {
-      console.error('❌ Agent ID missing in environment variables');
+      console.error('❌ Axie Studio Agent ID missing in environment variables');
       return null;
     }
-    console.log('✅ Agent ID loaded securely');
+    console.log('✅ Axie Studio Agent ID loaded securely');
     return id;
   }, []);
 
   // Highly optimized email capture tool with immediate response
   const get_email = useCallback((): Promise<EmailCaptureResult> => {
-    console.log('📧 get_email client tool IMMEDIATELY triggered by ElevenLabs agent!');
+    console.log('📧 STEP 2: get_email client tool triggered by Axie Studio agent!');
     
     return new Promise((resolve) => {
       // Set agent-focused prompt
-      setEmailPrompt('AI Agent requests your email:');
+      setEmailPrompt('Axie Studio Agent begär din e-post (Steg 2):');
       
       // Store resolver with immediate priority
       setEmailCaptureResolver(() => resolve);
@@ -76,7 +114,7 @@ function App() {
       
       // 15 second timeout matching ElevenLabs configuration
       const timeoutId = setTimeout(() => {
-        console.warn('⏰ get_email tool timed out after 15 seconds');
+        console.warn('⏰ STEP 2: get_email tool timed out after 15 seconds - Axie Studio session');
         setEmailCaptureResolver(null);
         setShowEmailModal(false);
         resolve({
@@ -97,11 +135,11 @@ function App() {
 
   // Name capture tool for first and last name
   const get_firstandlastname = useCallback((): Promise<NameCaptureResult> => {
-    console.log('👤 get_firstandlastname client tool IMMEDIATELY triggered by ElevenLabs agent!');
+    console.log('👤 STEP 1: get_firstandlastname client tool triggered by Axie Studio agent!');
     
     return new Promise((resolve) => {
       // Set agent-focused prompt
-      setNamePrompt('AI Agent requests your name:');
+      setNamePrompt('Axie Studio Agent begär ditt namn (Steg 1):');
       
       // Store resolver with immediate priority
       setNameCaptureResolver(() => resolve);
@@ -111,7 +149,7 @@ function App() {
       
       // 15 second timeout matching ElevenLabs configuration
       const timeoutId = setTimeout(() => {
-        console.warn('⏰ get_firstandlastname tool timed out after 15 seconds');
+        console.warn('⏰ STEP 1: get_firstandlastname tool timed out after 15 seconds - Axie Studio session');
         setNameCaptureResolver(null);
         setShowNameModal(false);
         resolve({
@@ -134,20 +172,23 @@ function App() {
   // Enhanced conversation configuration with security and performance optimizations
   const conversation = useConversation({
     clientTools: {
-      get_email: get_email,
-      get_firstandlastname: get_firstandlastname
+      get_firstandlastname: get_firstandlastname,
+      get_email: get_email
     },
     onConnect: useCallback(() => {
-      console.log('🔗 Connected to Axie Studio AI');
-      console.log('🎯 Agent system prompt should IMMEDIATELY trigger get_email AND get_firstandlastname client tools!');
+      console.log('🔗 Connected to Axie Studio AI Assistant');
+      console.log('🎯 Agent system prompt workflow:');
+      console.log('1. IMMEDIATELY trigger get_firstandlastname client tool');
+      console.log('2. Then trigger get_email client tool');
+      console.log('3. Continue conversing with Knowledge Base');
       setIsSecureConnection(true);
       setConnectionAttempts(0);
       setCallStartTime(Date.now());
       
-      console.log('✅ Waiting for agent system prompt to trigger both client tools...');
+      console.log('✅ Waiting for Axie Studio agent to trigger get_firstandlastname first, then get_email...');
     }, []),
     onDisconnect: useCallback(() => {
-      console.log('🔌 Disconnected from Axie Studio AI');
+      console.log('🔌 Disconnected from Axie Studio AI Assistant');
       setIsSecureConnection(false);
       setCallStartTime(null);
       setShowAutoEmailModal(false);
@@ -224,8 +265,15 @@ function App() {
 
   // Enhanced session management with timeout and retry logic
   const handleStartSession = useCallback(async () => {
+    // Check terms acceptance first
+    if (!hasAcceptedTerms) {
+      console.log('📋 Terms not accepted, showing terms modal');
+      setShowTermsModal(true);
+      return;
+    }
+
     if (!agentId) {
-      console.error('❌ Cannot start session: Agent ID missing');
+      console.error('❌ Cannot start session: Axie Studio Agent ID missing');
       return;
     }
 
@@ -244,14 +292,14 @@ function App() {
 
       // Add timeout for connection
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Connection timeout')), CONNECTION_TIMEOUT);
+        setTimeout(() => reject(new Error('Axie Studio connection timeout')), CONNECTION_TIMEOUT);
       });
 
       await Promise.race([sessionPromise, timeoutPromise]);
-      console.log('✅ Session started successfully');
+      console.log('✅ Axie Studio session started successfully');
       
     } catch (error) {
-      console.error('❌ Failed to start session:', error);
+      console.error('❌ Failed to start Axie Studio session:', error);
       
       // Auto-retry on failure
       if (connectionAttempts < RETRY_ATTEMPTS) {
@@ -261,15 +309,37 @@ function App() {
     }
   }, [agentId, hasPermission, requestMicrophonePermission, conversation, connectionAttempts]);
 
+  // Handle terms acceptance
+  const handleTermsAccept = useCallback(() => {
+    console.log('✅ Terms and conditions accepted');
+    setHasAcceptedTerms(true);
+    setShowTermsModal(false);
+    
+    // Automatically start session after terms acceptance
+    setTimeout(() => {
+      handleStartSession();
+    }, 100);
+  }, [handleStartSession]);
+
+  // Handle terms decline
+  const handleTermsDecline = useCallback(() => {
+    console.log('❌ Terms and conditions declined');
+    setShowTermsModal(false);
+    setHasAcceptedTerms(false);
+    
+    // Show user-friendly message
+    alert('Du måste acceptera våra villkor för att använda Axie Studio AI Röstassistent.');
+  }, []);
+
   // Optimized session end with cleanup
   const handleEndSession = useCallback(async () => {
-    console.log('🛑 Ending session...');
+    console.log('🛑 Ending Axie Studio session...');
     
     try {
       await conversation.endSession();
-      console.log('✅ Session ended successfully');
+      console.log('✅ Axie Studio session ended successfully');
     } catch (error) {
-      console.error('❌ Error ending session:', error);
+      console.error('❌ Error ending Axie Studio session:', error);
     } finally {
       setIsSecureConnection(false);
       setConnectionAttempts(0);
@@ -278,13 +348,13 @@ function App() {
 
   // Handle email submission from popup
   const handleEmailSubmit = useCallback((email: string) => {
-    console.log('📧 Email submitted from get_email tool:', email);
+    console.log('📧 Email submitted to Axie Studio agent:', email);
 
     if (emailCaptureResolver) {
       const result = {
         email: email,
         success: true,
-        message: `Email ${email} captured successfully for agent.`
+        message: `Email ${email} captured successfully for Axie Studio agent.`
       };
       
       emailCaptureResolver(result);
@@ -304,14 +374,14 @@ function App() {
 
   // Handle name submission from popup
   const handleNameSubmit = useCallback((firstName: string, lastName: string) => {
-    console.log('👤 Name submitted from get_firstandlastname tool:', firstName, lastName);
+    console.log('👤 Name submitted to Axie Studio agent:', firstName, lastName);
 
     if (nameCaptureResolver) {
       const result = {
         first_name: firstName,
         last_name: lastName,
         success: true,
-        message: `Name ${firstName} ${lastName} captured successfully for agent.`
+        message: `Name ${firstName} ${lastName} captured successfully for Axie Studio agent.`
       };
       
       nameCaptureResolver(result);
@@ -331,7 +401,7 @@ function App() {
 
   // Handle email popup close
   const handleEmailClose = useCallback(() => {
-    console.log('❌ Email popup closed by user');
+    console.log('❌ Email popup closed by user during Axie Studio session');
     
     if (emailCaptureResolver) {
       emailCaptureResolver({
@@ -352,7 +422,7 @@ function App() {
 
   // Handle name popup close
   const handleNameClose = useCallback(() => {
-    console.log('❌ Name popup closed by user');
+    console.log('❌ Name popup closed by user during Axie Studio session');
     
     if (nameCaptureResolver) {
       nameCaptureResolver({
@@ -374,7 +444,7 @@ function App() {
 
   // Handle auto email submission during call
   const handleAutoEmailSubmit = useCallback(async (email: string) => {
-    console.log('📧 Auto email submitted during call:', email);
+    console.log('📧 Auto email submitted during Axie Studio call:', email);
     
     // Send to webhook immediately using POST
     try {
@@ -383,7 +453,7 @@ function App() {
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           email: email,
@@ -393,12 +463,12 @@ function App() {
       });
 
       if (response.ok) {
-        console.log('✅ Auto email sent successfully via POST to webhook during call');
+        console.log('✅ Auto email sent successfully to Axie Studio webhook during call');
       } else {
-        console.error('❌ Auto webhook POST request failed:', response.status);
+        console.error('❌ Axie Studio webhook POST request failed:', response.status);
       }
     } catch (error) {
-      console.error('❌ Error sending auto email via POST to webhook:', error);
+      console.error('❌ Error sending auto email to Axie Studio webhook:', error);
     }
     
     // Close auto modal
@@ -407,7 +477,7 @@ function App() {
 
   // Handle auto email close
   const handleAutoEmailClose = useCallback(() => {
-    console.log('❌ Auto email popup closed during call');
+    console.log('❌ Auto email popup closed during Axie Studio call');
     setShowAutoEmailModal(false);
   }, []);
 
@@ -455,6 +525,13 @@ function App() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
+      {/* Terms and Conditions Popup */}
+      <TermsPopup
+        isOpen={showTermsModal}
+        onAccept={handleTermsAccept}
+        onDecline={handleTermsDecline}
+      />
+
       {/* Email Popup Component */}
       <EmailPopup
         isOpen={showEmailModal}

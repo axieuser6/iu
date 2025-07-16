@@ -49,7 +49,7 @@ const NamePopup: React.FC<NamePopupProps> = ({
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           first_name: trimmedFirstName,
@@ -109,7 +109,7 @@ const NamePopup: React.FC<NamePopupProps> = ({
               <User size={16} className="text-white" />
             </div>
             <h2 className="text-lg font-semibold text-black">
-              {autoTrigger ? 'Pågående samtal - Namn krävs' : 'Namn krävs'}
+              {autoTrigger ? 'Pågående Axie Studio samtal - Namn krävs' : 'Axie Studio - Namn krävs'}
             </h2>
           </div>
           {!autoTrigger && (
@@ -128,7 +128,7 @@ const NamePopup: React.FC<NamePopupProps> = ({
         <div className="p-6">
           <p className="text-gray-700 text-sm mb-4 leading-relaxed">
             {autoTrigger 
-              ? 'Du är för närvarande i ett aktivt samtal. Vänligen ange ditt namn för att fortsätta:' 
+              ? 'Du är för närvarande i ett aktivt Axie Studio samtal. Vänligen ange ditt namn (Steg 1):' 
               : prompt
             }
           </p>

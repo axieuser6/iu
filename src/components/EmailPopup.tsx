@@ -49,7 +49,7 @@ const EmailPopup: React.FC<EmailPopupProps> = ({
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           email: trimmedEmail,
@@ -105,7 +105,7 @@ const EmailPopup: React.FC<EmailPopupProps> = ({
               <Mail size={16} className="text-white" />
             </div>
             <h2 className="text-lg font-semibold text-black">
-              {autoTrigger ? 'Pågående samtal - E-post krävs' : 'E-post krävs'}
+              {autoTrigger ? 'Pågående Axie Studio samtal - E-post krävs' : 'Axie Studio - E-post krävs'}
             </h2>
           </div>
           {!autoTrigger && (
@@ -124,7 +124,7 @@ const EmailPopup: React.FC<EmailPopupProps> = ({
         <div className="p-6">
           <p className="text-gray-700 text-sm mb-4 leading-relaxed">
             {autoTrigger 
-              ? 'Du är för närvarande i ett aktivt samtal. Vänligen ange din e-post för att fortsätta:' 
+              ? 'Du är för närvarande i ett aktivt Axie Studio samtal. Vänligen ange din e-post (Steg 2):' 
               : prompt
             }
           </p>
