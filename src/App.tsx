@@ -62,11 +62,11 @@ function App() {
 
   // Highly optimized email capture tool with immediate response
   const get_email = useCallback((): Promise<EmailCaptureResult> => {
-    console.log('📧 get_email client tool IMMEDIATELY triggered by ElevenLabs agent!');
+    console.log('📧 STEP 2: get_email client tool triggered by ElevenLabs agent!');
     
     return new Promise((resolve) => {
       // Set agent-focused prompt
-      setEmailPrompt('AI Agent requests your email:');
+      setEmailPrompt('AI Agent begär din e-post (Steg 2):');
       
       // Store resolver with immediate priority
       setEmailCaptureResolver(() => resolve);
@@ -76,7 +76,7 @@ function App() {
       
       // 15 second timeout matching ElevenLabs configuration
       const timeoutId = setTimeout(() => {
-        console.warn('⏰ get_email tool timed out after 15 seconds');
+        console.warn('⏰ STEP 2: get_email tool timed out after 15 seconds');
         setEmailCaptureResolver(null);
         setShowEmailModal(false);
         resolve({
@@ -97,11 +97,11 @@ function App() {
 
   // Name capture tool for first and last name
   const get_firstandlastname = useCallback((): Promise<NameCaptureResult> => {
-    console.log('👤 get_firstandlastname client tool IMMEDIATELY triggered by ElevenLabs agent!');
+    console.log('👤 STEP 1: get_firstandlastname client tool triggered by ElevenLabs agent!');
     
     return new Promise((resolve) => {
       // Set agent-focused prompt
-      setNamePrompt('AI Agent requests your name:');
+      setNamePrompt('AI Agent begär ditt namn (Steg 1):');
       
       // Store resolver with immediate priority
       setNameCaptureResolver(() => resolve);
@@ -111,7 +111,7 @@ function App() {
       
       // 15 second timeout matching ElevenLabs configuration
       const timeoutId = setTimeout(() => {
-        console.warn('⏰ get_firstandlastname tool timed out after 15 seconds');
+        console.warn('⏰ STEP 1: get_firstandlastname tool timed out after 15 seconds');
         setNameCaptureResolver(null);
         setShowNameModal(false);
         resolve({
@@ -134,17 +134,20 @@ function App() {
   // Enhanced conversation configuration with security and performance optimizations
   const conversation = useConversation({
     clientTools: {
-      get_email: get_email,
-      get_firstandlastname: get_firstandlastname
+      get_firstandlastname: get_firstandlastname,
+      get_email: get_email
     },
     onConnect: useCallback(() => {
       console.log('🔗 Connected to Axie Studio AI');
-      console.log('🎯 Agent system prompt should IMMEDIATELY trigger get_email AND get_firstandlastname client tools!');
+      console.log('🎯 Agent system prompt workflow:');
+      console.log('1. IMMEDIATELY trigger get_firstandlastname client tool');
+      console.log('2. Then trigger get_email client tool');
+      console.log('3. Continue conversing with Knowledge Base');
       setIsSecureConnection(true);
       setConnectionAttempts(0);
       setCallStartTime(Date.now());
       
-      console.log('✅ Waiting for agent system prompt to trigger both client tools...');
+      console.log('✅ Waiting for agent to trigger get_firstandlastname first, then get_email...');
     }, []),
     onDisconnect: useCallback(() => {
       console.log('🔌 Disconnected from Axie Studio AI');

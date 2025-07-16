@@ -124,7 +124,7 @@ const EmailPopup: React.FC<EmailPopupProps> = ({
         <div className="p-6">
           <p className="text-gray-700 text-sm mb-4 leading-relaxed">
             {autoTrigger 
-              ? 'Du är för närvarande i ett aktivt samtal. Vänligen ange din e-post för att fortsätta:' 
+              ? 'Du är för närvarande i ett aktivt samtal. Vänligen ange din e-post (Steg 2):' 
               : prompt
             }
           </p>

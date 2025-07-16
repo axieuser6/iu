@@ -128,7 +128,7 @@ const NamePopup: React.FC<NamePopupProps> = ({
         <div className="p-6">
           <p className="text-gray-700 text-sm mb-4 leading-relaxed">
             {autoTrigger 
-              ? 'Du är för närvarande i ett aktivt samtal. Vänligen ange ditt namn för att fortsätta:' 
+              ? 'Du är för närvarande i ett aktivt samtal. Vänligen ange ditt namn (Steg 1):' 
               : prompt
             }
           </p>
