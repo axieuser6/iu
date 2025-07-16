@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import { Mic, MicOff, Phone, PhoneOff, Shield } from 'lucide-react';
-import TermsPopup from '../components/TermsPopup';
 import VoiceOrb from '../components/VoiceOrb';
 import StatusIndicators from '../components/StatusIndicators';
 import PermissionWarning from '../components/PermissionWarning';
+import { Link } from 'react-router-dom';
 
 // Constants for better performance
 const CONNECTION_TIMEOUT = 8000;
@@ -16,44 +16,7 @@ const HomePage: React.FC = () => {
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const [isSecureConnection, setIsSecureConnection] = useState(false);
-  const [showTermsModal, setShowTermsModal] = useState(false);
-  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
-
-  // Check terms acceptance on mount
-  useEffect(() => {
-    const checkTermsAcceptance = () => {
-      try {
-        const storedConsent = localStorage.getItem('axie_studio_terms_consent');
-        if (storedConsent) {
-          const consentData = JSON.parse(storedConsent);
-          const isValid = consentData.accepted && consentData.timestamp;
-          
-          // Check if consent is less than 1 year old
-          const consentDate = new Date(consentData.timestamp);
-          const oneYearAgo = new Date();
-          oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-          
-          if (isValid && consentDate > oneYearAgo) {
-            setHasAcceptedTerms(true);
-            console.log('✅ Valid terms consent found');
-          } else {
-            console.log('⚠️ Terms consent expired or invalid');
-            localStorage.removeItem('axie_studio_terms_consent');
-            setHasAcceptedTerms(false);
-          }
-        } else {
-          console.log('ℹ️ No terms consent found');
-          setHasAcceptedTerms(false);
-        }
-      } catch (error) {
-        console.error('❌ Error checking terms consent:', error);
-        setHasAcceptedTerms(false);
-      }
-    };
-
-    checkTermsAcceptance();
-  }, []);
 
   // Memoized agent ID with validation
   const agentId = useMemo(() => {
@@ -167,38 +130,8 @@ const HomePage: React.FC = () => {
 
   // Handle initial call button click
   const handleInitialCallClick = useCallback(async () => {
-    // Check terms acceptance first
-    if (!hasAcceptedTerms) {
-      console.log('📋 Terms not accepted, showing terms modal');
-      setShowTermsModal(true);
-      return;
-    }
-
-    // Directly start session if terms already accepted
     await handleStartSession();
-  }, [hasAcceptedTerms, handleStartSession]);
-
-  // Handle terms acceptance
-  const handleTermsAccept = useCallback(() => {
-    console.log('✅ Terms and conditions accepted');
-    setHasAcceptedTerms(true);
-    setShowTermsModal(false);
-    
-    // Directly start the session after terms acceptance
-    setTimeout(() => {
-      handleStartSession();
-    }, 100);
   }, [handleStartSession]);
-
-  // Handle terms decline
-  const handleTermsDecline = useCallback(() => {
-    console.log('❌ Terms and conditions declined');
-    setShowTermsModal(false);
-    setHasAcceptedTerms(false);
-    
-    // Show user-friendly message
-    alert('Du måste acceptera våra villkor för att använda Axie Studio AI Röstassistent.');
-  }, []);
 
   // Optimized session end with cleanup
   const handleEndSession = useCallback(async () => {
@@ -254,13 +187,6 @@ const HomePage: React.FC = () => {
 
   return (
     <>
-      {/* Terms and Conditions Popup */}
-      <TermsPopup
-        isOpen={showTermsModal}
-        onAccept={handleTermsAccept}
-        onDecline={handleTermsDecline}
-      />
-
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8">
         <div className="text-center w-full max-w-lg">
@@ -281,6 +207,21 @@ const HomePage: React.FC = () => {
           />
 
           <PermissionWarning hasPermission={hasPermission} />
+
+          {/* Simple Terms Agreement */}
+          {!isConnected && (
+            <div className="mt-6 text-center">
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Genom att fortsätta godkänner du våra{' '}
+                <Link 
+                  to="/terms" 
+                  className="text-gray-600 hover:text-black font-medium underline transition-colors"
+                >
+                  villkor
+                </Link>
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </>
