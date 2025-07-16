@@ -1,14 +1,20 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useConversation } from '@elevenlabs/react';
-import { Mic, MicOff, Phone, PhoneOff, Shield } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import VoiceOrb from '../components/VoiceOrb';
 import StatusIndicators from '../components/StatusIndicators';
 import PermissionWarning from '../components/PermissionWarning';
-import { Link } from 'react-router-dom';
+import UserInfoForm from '../components/UserInfoForm';
 
 // Constants for better performance
 const CONNECTION_TIMEOUT = 8000;
 const RETRY_ATTEMPTS = 3;
+
+interface UserInfo {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
 
 const HomePage: React.FC = () => {
   // State management with proper typing
@@ -17,6 +23,8 @@ const HomePage: React.FC = () => {
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const [isSecureConnection, setIsSecureConnection] = useState(false);
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [isStartingCall, setIsStartingCall] = useState(false);
 
   // Memoized agent ID with validation
   const agentId = useMemo(() => {
@@ -33,14 +41,28 @@ const HomePage: React.FC = () => {
   const conversation = useConversation({
     onConnect: useCallback(() => {
       console.log('🔗 Connected to Axie Studio AI Assistant');
+      
+      // Send user information as first message
+      if (userInfo) {
+        const userMessage = `Hej! Mitt namn är ${userInfo.firstName} ${userInfo.lastName} och min e-post är ${userInfo.email}. Jag har godkänt villkoren och är redo att börja samtalet.`;
+        console.log('📤 Sending user info to AI:', userMessage);
+        
+        // Send the message to the AI agent
+        setTimeout(() => {
+          conversation.sendMessage?.(userMessage);
+        }, 500); // Small delay to ensure connection is stable
+      }
+      
       setIsSecureConnection(true);
       setConnectionAttempts(0);
       setCallStartTime(Date.now());
-    }, []),
+      setIsStartingCall(false);
+    }, [userInfo]),
     onDisconnect: useCallback(() => {
       console.log('🔌 Disconnected from Axie Studio AI Assistant');
       setIsSecureConnection(false);
       setCallStartTime(null);
+      setIsStartingCall(false);
     }, []),
     onMessage: useCallback((message) => {
       console.log('💬 Message received:', message);
@@ -48,6 +70,8 @@ const HomePage: React.FC = () => {
     onError: useCallback((error) => {
       console.error('❌ Connection error:', error);
       setIsSecureConnection(false);
+      
+      setIsStartingCall(false);
       
       // Auto-retry logic for better reliability
       if (connectionAttempts < RETRY_ATTEMPTS) {
@@ -89,15 +113,55 @@ const HomePage: React.FC = () => {
     }
   }, [isRequestingPermission]);
 
-  // Enhanced session management
-  const handleStartSession = useCallback(async () => {
-    if (!agentId) {
-      console.error('❌ Cannot start session: Axie Studio Agent ID missing');
-      return;
+  // Handle user info form submission
+  const handleUserInfoSubmit = useCallback(async (info: UserInfo) => {
+    console.log('👤 User info submitted:', info);
+    setUserInfo(info);
+    setIsStartingCall(true);
+    
+    // Send to webhook
+    try {
+      const webhookUrl = 'https://stefan0987.app.n8n.cloud/webhook/803738bb-c134-4bdb-9720-5b1af902475f';
+      
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          first_name: info.firstName,
+          last_name: info.lastName,
+          email: info.email,
+          full_name: `${info.firstName} ${info.lastName}`,
+          timestamp: new Date().toISOString(),
+          source: 'pre_call_form_submission',
+          prompt: 'User submitted information before starting AI call'
+        })
+      });
+      
+      console.log('✅ User info sent to webhook');
+    } catch (error) {
+      console.error('❌ Failed to send user info to webhook:', error);
     }
-
+    
+    // Check microphone permission first
     if (!hasPermission) {
       await requestMicrophonePermission();
+      if (!hasPermission) {
+        setIsStartingCall(false);
+        return;
+      }
+    }
+    
+    // Start the session
+    await startSession();
+  }, [hasPermission, requestMicrophonePermission]);
+
+  // Enhanced session management
+  const startSession = useCallback(async () => {
+    if (!agentId) {
+      console.error('❌ Cannot start session: Axie Studio Agent ID missing');
+      setIsStartingCall(false);
       return;
     }
 
@@ -119,19 +183,15 @@ const HomePage: React.FC = () => {
       
     } catch (error) {
       console.error('❌ Failed to start Axie Studio session:', error);
+      setIsStartingCall(false);
       
       // Auto-retry on failure
       if (connectionAttempts < RETRY_ATTEMPTS) {
         setConnectionAttempts(prev => prev + 1);
-        setTimeout(() => handleStartSession(), 1000);
+        setTimeout(() => startSession(), 1000);
       }
     }
-  }, [agentId, hasPermission, requestMicrophonePermission, conversation, connectionAttempts]);
-
-  // Handle initial call button click
-  const handleInitialCallClick = useCallback(async () => {
-    await handleStartSession();
-  }, [handleStartSession]);
+  }, [agentId, conversation, connectionAttempts]);
 
   // Optimized session end with cleanup
   const handleEndSession = useCallback(async () => {
@@ -145,6 +205,8 @@ const HomePage: React.FC = () => {
     } finally {
       setIsSecureConnection(false);
       setConnectionAttempts(0);
+      setUserInfo(null);
+      setIsStartingCall(false);
     }
   }, [conversation]);
 
@@ -185,6 +247,18 @@ const HomePage: React.FC = () => {
 
   const { isConnected, isConnecting } = connectionStatus;
 
+  // Show form if user hasn't submitted info yet
+  if (!userInfo && !isConnected) {
+    return (
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8">
+        <UserInfoForm 
+          onSubmit={handleUserInfoSubmit}
+          isSubmitting={isStartingCall}
+        />
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Main Content */}
@@ -197,7 +271,7 @@ const HomePage: React.FC = () => {
             isSpeaking={conversation.isSpeaking}
             hasPermission={hasPermission}
             connectionAttempts={connectionAttempts}
-            onCallClick={isConnected ? handleEndSession : handleInitialCallClick}
+            onCallClick={handleEndSession}
           />
 
           <StatusIndicators
@@ -207,21 +281,6 @@ const HomePage: React.FC = () => {
           />
 
           <PermissionWarning hasPermission={hasPermission} />
-
-          {/* Simple Terms Agreement */}
-          {!isConnected && (
-            <div className="mt-6 text-center">
-              <p className="text-xs text-gray-500 leading-relaxed">
-                Genom att fortsätta godkänner du våra{' '}
-                <Link 
-                  to="/terms" 
-                  className="text-gray-600 hover:text-black font-medium underline transition-colors"
-                >
-                  villkor
-                </Link>
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </>
