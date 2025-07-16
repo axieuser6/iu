@@ -1,56 +1,38 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useConversation } from '@elevenlabs/react';
-import { Mic, MicOff, Phone, PhoneOff, Mail, X, Shield } from 'lucide-react';
-import EmailPopup from './components/EmailPopup';
-import NamePopup from './components/NamePopup';
+import { Mic, MicOff, Phone, PhoneOff, Mail, X, Shield, User, ArrowRight } from 'lucide-react';
 import TermsPopup from './components/TermsPopup';
 
 // Types for better type safety
-interface EmailCaptureParams {
-  prompt?: string;
-}
-
-interface EmailCaptureResult {
-  email: string | null;
-  success: boolean;
-  message: string;
-}
-
-interface NameCaptureParams {
-  prompt?: string;
-}
-
-interface NameCaptureResult {
-  first_name: string | null;
-  last_name: string | null;
-  success: boolean;
-  message: string;
+interface UserData {
+  firstName: string;
+  lastName: string;
+  email: string;
 }
 
 // Constants for better performance
-const MODAL_ANIMATION_DURATION = 150; // Faster animation
 const CONNECTION_TIMEOUT = 8000;
 const RETRY_ATTEMPTS = 3;
-const TOOL_CAPTURE_TIMEOUT = 15000; // 15s for immediate response
 
 function App() {
   // State management with proper typing
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  const [showNameModal, setShowNameModal] = useState(false);
-  const [showAutoEmailModal, setShowAutoEmailModal] = useState(false);
-  const [emailInput, setEmailInput] = useState('');
-  const [emailPrompt, setEmailPrompt] = useState('');
-  const [namePrompt, setNamePrompt] = useState('');
-  const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const [isSecureConnection, setIsSecureConnection] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
-  const [emailCaptureResolver, setEmailCaptureResolver] = useState<((result: EmailCaptureResult) => void) | null>(null);
-  const [nameCaptureResolver, setNameCaptureResolver] = useState<((result: NameCaptureResult) => void) | null>(null);
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
+  
+  // New state for pre-call data collection
+  const [showDataForm, setShowDataForm] = useState(false);
+  const [userData, setUserData] = useState<UserData>({
+    firstName: '',
+    lastName: '',
+    email: ''
+  });
+  const [formErrors, setFormErrors] = useState<Partial<UserData>>({});
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
 
   // Check terms acceptance on mount
   useEffect(() => {
@@ -98,124 +80,20 @@ function App() {
     return id;
   }, []);
 
-  // Highly optimized email capture tool with immediate response
-  const get_email = useCallback((): Promise<EmailCaptureResult> => {
-    console.log('📧 STEP 2: get_email client tool triggered by Axie Studio agent!');
-    
-    return new Promise((resolve) => {
-      // Set agent-focused prompt
-      setEmailPrompt('Axie Studio Agent begär din e-post (Steg 2):');
-      
-      // Store resolver with immediate priority
-      setEmailCaptureResolver(() => resolve);
-      
-      // Show modal IMMEDIATELY - no animation delay
-      setShowEmailModal(true);
-      
-      // 15 second timeout matching ElevenLabs configuration
-      const timeoutId = setTimeout(() => {
-        console.warn('⏰ STEP 2: get_email tool timed out after 15 seconds - Axie Studio session');
-        setEmailCaptureResolver(null);
-        setShowEmailModal(false);
-        resolve({
-          email: null,
-          success: false,
-          message: 'Email capture timeout after 15 seconds - please try again.'
-        });
-      }, TOOL_CAPTURE_TIMEOUT);
-      
-      // Store cleanup function
-      (window as any).emailCaptureCleanup = () => {
-        clearTimeout(timeoutId);
-        setEmailCaptureResolver(null);
-        setShowEmailModal(false);
-      };
-    });
-  }, []);
-
-  // Name capture tool for first and last name
-  const get_firstandlastname = useCallback((): Promise<NameCaptureResult> => {
-    console.log('👤 STEP 1: get_firstandlastname client tool triggered by Axie Studio agent!');
-    
-    return new Promise((resolve) => {
-      // Set agent-focused prompt
-      setNamePrompt('Axie Studio Agent begär ditt namn (Steg 1):');
-      
-      // Store resolver with immediate priority
-      setNameCaptureResolver(() => resolve);
-      
-      // Show modal IMMEDIATELY - no animation delay
-      setShowNameModal(true);
-      
-      // 15 second timeout matching ElevenLabs configuration
-      const timeoutId = setTimeout(() => {
-        console.warn('⏰ STEP 1: get_firstandlastname tool timed out after 15 seconds - Axie Studio session');
-        setNameCaptureResolver(null);
-        setShowNameModal(false);
-        resolve({
-          first_name: null,
-          last_name: null,
-          success: false,
-          message: 'Name capture timeout after 15 seconds - please try again.'
-        });
-      }, TOOL_CAPTURE_TIMEOUT);
-      
-      // Store cleanup function
-      (window as any).nameCaptureCleanup = () => {
-        clearTimeout(timeoutId);
-        setNameCaptureResolver(null);
-        setShowNameModal(false);
-      };
-    });
-  }, []);
-
-  // Enhanced conversation configuration with security and performance optimizations
+  // Enhanced conversation configuration - NO CLIENT TOOLS since we're sending data TO agent
   const conversation = useConversation({
-    clientTools: {
-      get_firstandlastname: get_firstandlastname,
-      get_email: get_email
-    },
     onConnect: useCallback(() => {
       console.log('🔗 Connected to Axie Studio AI Assistant');
-      console.log('🎯 Agent system prompt workflow:');
-      console.log('1. IMMEDIATELY trigger get_firstandlastname client tool');
-      console.log('2. Then trigger get_email client tool');
-      console.log('3. Continue conversing with Knowledge Base');
+      console.log('📤 User data sent to agent:', userData);
       setIsSecureConnection(true);
       setConnectionAttempts(0);
       setCallStartTime(Date.now());
-      
-      console.log('✅ Waiting for Axie Studio agent to trigger get_firstandlastname first, then get_email...');
-    }, []),
+    }, [userData]),
     onDisconnect: useCallback(() => {
       console.log('🔌 Disconnected from Axie Studio AI Assistant');
       setIsSecureConnection(false);
       setCallStartTime(null);
-      setShowAutoEmailModal(false);
-      
-      // Clean up any pending email capture
-      if (emailCaptureResolver) {
-        emailCaptureResolver({
-          email: null,
-          success: false,
-          message: 'Connection lost - email capture cancelled.'
-        });
-        setEmailCaptureResolver(null);
-        setShowEmailModal(false);
-      }
-      
-      // Clean up any pending name capture
-      if (nameCaptureResolver) {
-        nameCaptureResolver({
-          first_name: null,
-          last_name: null,
-          success: false,
-          message: 'Connection lost - name capture cancelled.'
-        });
-        setNameCaptureResolver(null);
-        setShowNameModal(false);
-      }
-    }, [emailCaptureResolver]),
+    }, []),
     onMessage: useCallback((message) => {
       console.log('💬 Message received:', message);
     }, []),
@@ -231,7 +109,7 @@ function App() {
         }, 2000);
       }
     }, [connectionAttempts])
-  }, [get_email, get_firstandlastname, emailCaptureResolver, nameCaptureResolver, connectionAttempts]);
+  });
 
   // Optimized microphone permission request with better UX
   const requestMicrophonePermission = useCallback(async () => {
@@ -263,15 +141,77 @@ function App() {
     }
   }, [isRequestingPermission]);
 
-  // Enhanced session management with timeout and retry logic
-  const handleStartSession = useCallback(async () => {
-    // Check terms acceptance first
-    if (!hasAcceptedTerms) {
-      console.log('📋 Terms not accepted, showing terms modal');
-      setShowTermsModal(true);
-      return;
+  // Validate form data
+  const validateForm = useCallback(() => {
+    const errors: Partial<UserData> = {};
+    
+    if (!userData.firstName.trim()) {
+      errors.firstName = 'Förnamn krävs';
     }
+    
+    if (!userData.lastName.trim()) {
+      errors.lastName = 'Efternamn krävs';
+    }
+    
+    if (!userData.email.trim()) {
+      errors.email = 'E-post krävs';
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(userData.email.trim())) {
+        errors.email = 'Vänligen ange en giltig e-postadress';
+      }
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [userData]);
 
+  // Handle form submission
+  const handleFormSubmit = useCallback(async () => {
+    if (!validateForm() || isSubmittingForm) return;
+    
+    setIsSubmittingForm(true);
+    
+    try {
+      // Send data to webhook
+      const webhookUrl = 'https://stefan0987.app.n8n.cloud/webhook/803738bb-c134-4bdb-9720-5b1af902475f';
+      
+      console.log('📤 Sending user data to webhook before call:', userData);
+      
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          first_name: userData.firstName.trim(),
+          last_name: userData.lastName.trim(),
+          email: userData.email.trim(),
+          full_name: `${userData.firstName.trim()} ${userData.lastName.trim()}`,
+          timestamp: new Date().toISOString(),
+          source: 'webapp_pre_call_form'
+        })
+      });
+
+      if (response.ok) {
+        console.log('✅ User data sent successfully to webhook');
+        setShowDataForm(false);
+        // Now start the session with the user data
+        await handleStartSession();
+      } else {
+        console.error('❌ Webhook POST request failed:', response.status);
+        alert('Misslyckades att skicka data. Försök igen.');
+      }
+    } catch (error) {
+      console.error('❌ Error sending data to webhook:', error);
+      alert('Nätverksfel. Försök igen.');
+    } finally {
+      setIsSubmittingForm(false);
+    }
+  }, [userData, validateForm, isSubmittingForm]);
+
+  // Enhanced session management with user data
+  const handleStartSession = useCallback(async () => {
     if (!agentId) {
       console.error('❌ Cannot start session: Axie Studio Agent ID missing');
       return;
@@ -282,12 +222,17 @@ function App() {
       return;
     }
 
-    console.log('🚀 Starting secure session...');
+    console.log('🚀 Starting secure session with user data...');
     
     try {
+      // Create context message with user data for the agent
+      const contextMessage = `User Information - Name: ${userData.firstName} ${userData.lastName}, Email: ${userData.email}. Please use this information during our conversation.`;
+      
       const sessionPromise = conversation.startSession({
         agentId: agentId,
         connectionType: 'webrtc',
+        // Send initial context to agent
+        initialMessage: contextMessage
       });
 
       // Add timeout for connection
@@ -296,7 +241,7 @@ function App() {
       });
 
       await Promise.race([sessionPromise, timeoutPromise]);
-      console.log('✅ Axie Studio session started successfully');
+      console.log('✅ Axie Studio session started successfully with user data');
       
     } catch (error) {
       console.error('❌ Failed to start Axie Studio session:', error);
@@ -307,7 +252,20 @@ function App() {
         setTimeout(() => handleStartSession(), 1000);
       }
     }
-  }, [agentId, hasPermission, requestMicrophonePermission, conversation, connectionAttempts]);
+  }, [agentId, hasPermission, requestMicrophonePermission, conversation, connectionAttempts, userData]);
+
+  // Handle initial call button click
+  const handleInitialCallClick = useCallback(async () => {
+    // Check terms acceptance first
+    if (!hasAcceptedTerms) {
+      console.log('📋 Terms not accepted, showing terms modal');
+      setShowTermsModal(true);
+      return;
+    }
+
+    // Show data collection form
+    setShowDataForm(true);
+  }, [hasAcceptedTerms]);
 
   // Handle terms acceptance
   const handleTermsAccept = useCallback(() => {
@@ -315,11 +273,11 @@ function App() {
     setHasAcceptedTerms(true);
     setShowTermsModal(false);
     
-    // Automatically start session after terms acceptance
+    // Show data form after terms acceptance
     setTimeout(() => {
-      handleStartSession();
+      setShowDataForm(true);
     }, 100);
-  }, [handleStartSession]);
+  }, []);
 
   // Handle terms decline
   const handleTermsDecline = useCallback(() => {
@@ -346,140 +304,14 @@ function App() {
     }
   }, [conversation]);
 
-  // Handle email submission from popup
-  const handleEmailSubmit = useCallback((email: string) => {
-    console.log('📧 Email submitted to Axie Studio agent:', email);
-
-    if (emailCaptureResolver) {
-      const result = {
-        email: email,
-        success: true,
-        message: `Email ${email} captured successfully for Axie Studio agent.`
-      };
-      
-      emailCaptureResolver(result);
-      setEmailCaptureResolver(null);
-      
-      if ((window as any).emailCaptureCleanup) {
-        (window as any).emailCaptureCleanup();
-        delete (window as any).emailCaptureCleanup;
-      }
-    } else {
-      console.error('❌ No get_email resolver found');
+  // Handle form input changes
+  const handleInputChange = useCallback((field: keyof UserData, value: string) => {
+    setUserData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (formErrors[field]) {
+      setFormErrors(prev => ({ ...prev, [field]: undefined }));
     }
-    
-    // Close modal
-    setShowEmailModal(false);
-  }, [emailCaptureResolver]);
-
-  // Handle name submission from popup
-  const handleNameSubmit = useCallback((firstName: string, lastName: string) => {
-    console.log('👤 Name submitted to Axie Studio agent:', firstName, lastName);
-
-    if (nameCaptureResolver) {
-      const result = {
-        first_name: firstName,
-        last_name: lastName,
-        success: true,
-        message: `Name ${firstName} ${lastName} captured successfully for Axie Studio agent.`
-      };
-      
-      nameCaptureResolver(result);
-      setNameCaptureResolver(null);
-      
-      if ((window as any).nameCaptureCleanup) {
-        (window as any).nameCaptureCleanup();
-        delete (window as any).nameCaptureCleanup;
-      }
-    } else {
-      console.error('❌ No get_firstandlastname resolver found');
-    }
-    
-    // Close modal
-    setShowNameModal(false);
-  }, [nameCaptureResolver]);
-
-  // Handle email popup close
-  const handleEmailClose = useCallback(() => {
-    console.log('❌ Email popup closed by user during Axie Studio session');
-    
-    if (emailCaptureResolver) {
-      emailCaptureResolver({
-        email: null,
-        success: false,
-        message: 'Email capture cancelled by user.'
-      });
-      setEmailCaptureResolver(null);
-      
-      if ((window as any).emailCaptureCleanup) {
-        (window as any).emailCaptureCleanup();
-        delete (window as any).emailCaptureCleanup;
-      }
-    }
-    
-    setShowEmailModal(false);
-  }, [emailCaptureResolver]);
-
-  // Handle name popup close
-  const handleNameClose = useCallback(() => {
-    console.log('❌ Name popup closed by user during Axie Studio session');
-    
-    if (nameCaptureResolver) {
-      nameCaptureResolver({
-        first_name: null,
-        last_name: null,
-        success: false,
-        message: 'Name capture cancelled by user.'
-      });
-      setNameCaptureResolver(null);
-      
-      if ((window as any).nameCaptureCleanup) {
-        (window as any).nameCaptureCleanup();
-        delete (window as any).nameCaptureCleanup;
-      }
-    }
-    
-    setShowNameModal(false);
-  }, [nameCaptureResolver]);
-
-  // Handle auto email submission during call
-  const handleAutoEmailSubmit = useCallback(async (email: string) => {
-    console.log('📧 Auto email submitted during Axie Studio call:', email);
-    
-    // Send to webhook immediately using POST
-    try {
-      const webhookUrl = 'https://stefan0987.app.n8n.cloud/webhook/803738bb-c134-4bdb-9720-5b1af902475f';
-      
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          email: email,
-          timestamp: new Date().toISOString(),
-          source: 'auto_popup_during_call'
-        })
-      });
-
-      if (response.ok) {
-        console.log('✅ Auto email sent successfully to Axie Studio webhook during call');
-      } else {
-        console.error('❌ Axie Studio webhook POST request failed:', response.status);
-      }
-    } catch (error) {
-      console.error('❌ Error sending auto email to Axie Studio webhook:', error);
-    }
-    
-    // Close auto modal
-    setShowAutoEmailModal(false);
-  }, []);
-
-  // Handle auto email close
-  const handleAutoEmailClose = useCallback(() => {
-    console.log('❌ Auto email popup closed during Axie Studio call');
-    setShowAutoEmailModal(false);
-  }, []);
+  }, [formErrors]);
 
   // Check initial permissions on mount
   useEffect(() => {
@@ -532,30 +364,107 @@ function App() {
         onDecline={handleTermsDecline}
       />
 
-      {/* Email Popup Component */}
-      <EmailPopup
-        isOpen={showEmailModal}
-        onClose={handleEmailClose}
-        onSubmit={handleEmailSubmit}
-        prompt={emailPrompt}
-      />
+      {/* Data Collection Form Modal */}
+      {showDataForm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-auto border border-gray-200">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center">
+                  <User size={16} className="text-white" />
+                </div>
+                <h2 className="text-lg font-semibold text-black">
+                  Dina uppgifter för AI-samtalet
+                </h2>
+              </div>
+            </div>
 
-      {/* Name Popup Component */}
-      <NamePopup
-        isOpen={showNameModal}
-        onClose={handleNameClose}
-        onSubmit={handleNameSubmit}
-        prompt={namePrompt}
-      />
-
-      {/* Auto Email Popup During Call */}
-      <EmailPopup
-        isOpen={showAutoEmailModal}
-        onClose={handleAutoEmailClose}
-        onSubmit={handleAutoEmailSubmit}
-        prompt="You are currently in an active call. Please provide your email:"
-        autoTrigger={true}
-      />
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-gray-700 text-sm mb-4 leading-relaxed">
+                Ange dina uppgifter så att AI-agenten kan använda dem under samtalet:
+              </p>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="text"
+                      value={userData.firstName}
+                      onChange={(e) => handleInputChange('firstName', e.target.value)}
+                      placeholder="Förnamn"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-black focus:ring-1 focus:ring-black outline-none transition-all text-black placeholder-gray-400 disabled:opacity-50 disabled:bg-gray-50"
+                      autoFocus
+                      autoComplete="given-name"
+                      disabled={isSubmittingForm}
+                    />
+                    {formErrors.firstName && (
+                      <p className="text-red-600 text-xs mt-1">{formErrors.firstName}</p>
+                    )}
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={userData.lastName}
+                      onChange={(e) => handleInputChange('lastName', e.target.value)}
+                      placeholder="Efternamn"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-black focus:ring-1 focus:ring-black outline-none transition-all text-black placeholder-gray-400 disabled:opacity-50 disabled:bg-gray-50"
+                      autoComplete="family-name"
+                      disabled={isSubmittingForm}
+                    />
+                    {formErrors.lastName && (
+                      <p className="text-red-600 text-xs mt-1">{formErrors.lastName}</p>
+                    )}
+                  </div>
+                </div>
+                
+                <div>
+                  <input
+                    type="email"
+                    value={userData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    placeholder="din@email.com"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-black focus:ring-1 focus:ring-black outline-none transition-all text-black placeholder-gray-400 disabled:opacity-50 disabled:bg-gray-50"
+                    autoComplete="email"
+                    disabled={isSubmittingForm}
+                  />
+                  {formErrors.email && (
+                    <p className="text-red-600 text-xs mt-1">{formErrors.email}</p>
+                  )}
+                </div>
+                
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => setShowDataForm(false)}
+                    disabled={isSubmittingForm}
+                    className="flex-1 px-4 py-3 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    Avbryt
+                  </button>
+                  <button
+                    onClick={handleFormSubmit}
+                    disabled={isSubmittingForm}
+                    className="flex-1 px-4 py-3 bg-black hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
+                  >
+                    {isSubmittingForm ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Startar samtal...
+                      </>
+                    ) : (
+                      <>
+                        Starta AI-samtal
+                        <ArrowRight size={16} className="ml-2" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Enhanced Header with Security Indicator */}
       <div className="p-4 sm:p-6 lg:p-8">
@@ -606,7 +515,7 @@ function App() {
               {/* Enhanced central button */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <button
-                  onClick={isConnected ? handleEndSession : handleStartSession}
+                  onClick={isConnected ? handleEndSession : handleInitialCallClick}
                   disabled={isConnecting || isRequestingPermission}
                   className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-black/80 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/90 active:scale-95 transition-all duration-200 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed group touch-manipulation will-change-transform"
                   aria-label={isConnected ? 'End call' : 'Start call'}
@@ -647,6 +556,19 @@ function App() {
               </div>
             </div>
           </div>
+
+          {/* Show user data when connected */}
+          {isConnected && userData.firstName && (
+            <div className="mb-4 sm:mb-6">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 sm:p-4 max-w-xs sm:max-w-md mx-auto">
+                <div className="text-emerald-800 text-xs sm:text-sm">
+                  <p className="font-medium">AI-agenten känner till:</p>
+                  <p>👤 {userData.firstName} {userData.lastName}</p>
+                  <p>📧 {userData.email}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Enhanced status indicators */}
           {isConnected && (
