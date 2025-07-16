@@ -628,18 +628,5 @@ function App() {
     </div>
   );
 }
-          <span className="text-xs sm:text-sm">Powered by</span>
-          <img 
-            src="https://www.axiestudio.se/logo.jpg" 
-            alt="Axie Studio" 
-            className="w-3 h-3 sm:w-4 sm:h-4 rounded object-cover"
-            loading="lazy"
-          />
-          <span className="text-xs sm:text-sm font-medium">Axie Studio AI</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default App;
