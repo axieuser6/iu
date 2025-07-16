@@ -79,7 +79,7 @@ const HomePage: React.FC = () => {
         setTimeout(sendUserInfo, 500);
         setTimeout(sendUserInfo, 1500);
       }
-    }, [userInfo, conversation]),
+    }, [userInfo]),
     onDisconnect: useCallback(() => {
       console.log('🔌 Disconnected from Axie Studio AI Assistant');
       setIsSecureConnection(false);
