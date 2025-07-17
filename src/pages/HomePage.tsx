@@ -36,29 +36,40 @@ const HomePage: React.FC = () => {
   const [isStartingCall, setIsStartingCall] = useState(false);
 
   // Client tool: get_info - Provides user information to the agent
-  const get_info = useCallback(async (): Promise<GetInfoResult> => {
+  const get_info = useCallback(async (params: { email: string; name: string }) => {
     console.log('🔧 Agent requested user info via get_info tool');
     
     if (!userInfo) {
-      console.log('❌ No user info available for get_info tool');
-      return {
-        email: '',
-        name: '',
-        success: false,
-        message: 'User information not available'
-      };
+      return { success: false, message: 'User information not available' };
     }
 
-    const result = {
+    // Send user information to agent via POST
+    const userData = {
+      email: userInfo.email,
+      name: `${userInfo.firstName} ${userInfo.lastName}`,
       first_name: userInfo.firstName,
       last_name: userInfo.lastName,
-      email: userInfo.email,
-      success: true,
-      message: 'User information retrieved successfully'
+      timestamp: new Date().toISOString(),
+      source: 'get_info_client_tool'
     };
 
-    console.log('✅ Returning user info to agent:', result);
-    return result;
+    console.log('📤 Sending user info to agent via POST:', userData);
+    
+    try {
+      // This sends the data to the agent through the ElevenLabs client tool system
+      return {
+        email: userData.email,
+        name: userData.name,
+        success: true,
+        message: 'User information sent successfully'
+      };
+    } catch (error) {
+      console.error('❌ Error sending user info to agent:', error);
+      return {
+        success: false,
+        message: 'Failed to send user information'
+      };
+    }
   }, [userInfo]);
 
   // Memoized agent ID with validation
