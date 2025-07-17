@@ -85,15 +85,18 @@ const HomePage: React.FC = () => {
     console.log('🔧 Agent requested user name via get_firstandlastname tool');
     console.log('📥 Received from agent:', params);
     
-    // Get stored user info or use agent provided data
+    // Get stored user info - use actual stored data, not agent placeholders
     const storedUserInfo = localStorage.getItem('axie_studio_user_info');
-    let currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : null;
+    let currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : {};
     
-    // Update with agent provided data
+    // Use stored data if available, otherwise fall back to agent data
+    const actualFirstName = currentUserInfo.firstName || params.first_name;
+    const actualLastName = currentUserInfo.lastName || params.last_name;
+    
     const updatedUserInfo = {
-      firstName: params.first_name,
-      lastName: params.last_name,
-      email: currentUserInfo?.email || ''
+      firstName: actualFirstName,
+      lastName: actualLastName,
+      email: currentUserInfo.email || ''
     };
     
     // Store updated info
@@ -102,14 +105,14 @@ const HomePage: React.FC = () => {
     
     // Send to webhook
     await sendToWebhook({
-      first_name: params.first_name,
-      last_name: params.last_name,
-      full_name: `${params.first_name} ${params.last_name}`
+      first_name: actualFirstName,
+      last_name: actualLastName,
+      full_name: `${actualFirstName} ${actualLastName}`
     }, 'agent_triggered_get_firstandlastname_tool');
     
     const response = {
-      first_name: params.first_name,
-      last_name: params.last_name,
+      first_name: actualFirstName,
+      last_name: actualLastName,
       success: true,
       message: 'User name received and stored successfully'
     };
@@ -123,15 +126,17 @@ const HomePage: React.FC = () => {
     console.log('🔧 Agent requested user email via get_email tool');
     console.log('📥 Received from agent:', params);
     
-    // Get stored user info or create new
+    // Get stored user info - use actual stored data, not agent placeholders
     const storedUserInfo = localStorage.getItem('axie_studio_user_info');
     let currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : {};
     
-    // Update with agent provided data
+    // Use stored data if available, otherwise fall back to agent data
+    const actualEmail = currentUserInfo.email || params.email;
+    
     const updatedUserInfo = {
       firstName: currentUserInfo.firstName || '',
       lastName: currentUserInfo.lastName || '',
-      email: params.email
+      email: actualEmail
     };
     
     // Store updated info
@@ -140,11 +145,11 @@ const HomePage: React.FC = () => {
     
     // Send to webhook
     await sendToWebhook({
-      email: params.email
+      email: actualEmail
     }, 'agent_triggered_get_email_tool');
     
     const response = {
-      email: params.email,
+      email: actualEmail,
       success: true,
       message: 'User email received and stored successfully'
     };
@@ -158,11 +163,19 @@ const HomePage: React.FC = () => {
     console.log('🔧 Agent requested complete user info via get_info tool');
     console.log('📥 Received from agent:', params);
     
-    // Update with agent provided data
+    // Get stored user info - use actual stored data, not agent placeholders
+    const storedUserInfo = localStorage.getItem('axie_studio_user_info');
+    let currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : {};
+    
+    // Use stored data if available, otherwise fall back to agent data
+    const actualFirstName = currentUserInfo.firstName || params.first_name;
+    const actualLastName = currentUserInfo.lastName || params.last_name;
+    const actualEmail = currentUserInfo.email || params.email;
+    
     const updatedUserInfo = {
-      firstName: params.first_name,
-      lastName: params.last_name,
-      email: params.email
+      firstName: actualFirstName,
+      lastName: actualLastName,
+      email: actualEmail
     };
     
     // Store updated info
@@ -171,16 +184,16 @@ const HomePage: React.FC = () => {
     
     // Send to webhook
     await sendToWebhook({
-      email: params.email,
-      first_name: params.first_name,
-      last_name: params.last_name,
-      full_name: `${params.first_name} ${params.last_name}`
+      email: actualEmail,
+      first_name: actualFirstName,
+      last_name: actualLastName,
+      full_name: `${actualFirstName} ${actualLastName}`
     }, 'agent_triggered_get_info_tool');
     
     const response = {
-      email: params.email,
-      first_name: params.first_name,
-      last_name: params.last_name,
+      email: actualEmail,
+      first_name: actualFirstName,
+      last_name: actualLastName,
       success: true,
       message: 'Complete user info received and stored successfully'
     };
