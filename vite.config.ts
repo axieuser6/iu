@@ -25,8 +25,8 @@ export default defineConfig({
   server: {
     https: true, // Enable HTTPS for WebRTC connections
     headers: {
-      'Cross-Origin-Embedder-Policy': 'credentialless',
-      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin',
     },
     host: 'localhost',
     port: 5173,
