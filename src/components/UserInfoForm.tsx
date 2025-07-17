@@ -1,8 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import { User, Mail, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useFormSubmission } from '../hooks/useFormSubmission';
 
 interface UserInfoFormProps {
   onSubmit: (userInfo: { firstName: string; lastName: string; email: string }) => void;
@@ -10,74 +8,57 @@ interface UserInfoFormProps {
 }
 
 const UserInfoForm: React.FC<UserInfoFormProps> = ({ onSubmit, isSubmitting = false }) => {
-  const { t } = useTranslation();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [termsError, setTermsError] = useState('');
 
-  const validateUserInfo = useCallback((data: { firstName: string; lastName: string; email: string }) => {
-    const { firstName, lastName, email } = data;
+  const validateForm = useCallback(() => {
+    const newErrors: { [key: string]: string } = {};
 
     if (!firstName.trim()) {
-      return t('error.firstName.required');
+      newErrors.firstName = 'Förnamn krävs';
     }
 
     if (!lastName.trim()) {
-      return t('error.lastName.required');
+      newErrors.lastName = 'Efternamn krävs';
     }
 
     if (!email.trim()) {
-      return t('error.email.required');
+      newErrors.email = 'E-post krävs';
     } else {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email.trim())) {
-        return t('error.email.invalid');
+        newErrors.email = 'Vänligen ange en giltig e-postadress';
       }
     }
 
     if (!agreedToTerms) {
-      setTermsError(t('error.terms.required'));
-      return t('error.terms.required');
+      newErrors.terms = 'Du måste godkänna villkoren för att fortsätta';
     }
 
-    setTermsError('');
-    return null;
-  }, [firstName, lastName, email, agreedToTerms, t]);
-
-  const { error, submitForm } = useFormSubmission<{
-    first_name: string;
-    last_name: string;
-    email: string;
-    full_name: string;
-    prompt: string;
-  }>({
-    onSuccess: (data) => {
-      const userInfo = {
-        firstName: data.first_name,
-        lastName: data.last_name,
-        email: data.email
-      };
-      onSubmit(userInfo);
-    },
-    webhookSource: 'pre_call_form_submission',
-    validateData: validateUserInfo
-  });
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [firstName, lastName, email, agreedToTerms]);
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     
-    submitForm({
-      first_name: firstName.trim(),
-      last_name: lastName.trim(),
-      email: email.trim(),
-      full_name: `${firstName.trim()} ${lastName.trim()}`,
-      prompt: 'User submitted information before starting AI call'
-    });
-  }, [firstName, lastName, email, submitForm]);
+    if (!validateForm()) {
+      return;
+    }
 
-  const handleInputChange = useCallback((field: string, value: string, clearErrorFn?: () => void) => {
+    const userInfo = {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim()
+    };
+
+    onSubmit(userInfo);
+  }, [firstName, lastName, email, validateForm, onSubmit]);
+
+  const handleInputChange = useCallback((field: string, value: string) => {
     switch (field) {
       case 'firstName':
         setFirstName(value);
@@ -90,11 +71,11 @@ const UserInfoForm: React.FC<UserInfoFormProps> = ({ onSubmit, isSubmitting = fa
         break;
     }
     
-    // Clear specific errors when user starts typing
-    if (clearErrorFn) {
-      clearErrorFn();
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
     }
-  }, []);
+  }, [errors]);
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -105,10 +86,10 @@ const UserInfoForm: React.FC<UserInfoFormProps> = ({ onSubmit, isSubmitting = fa
             <User size={24} className="text-white" />
           </div>
           <h2 className="text-xl font-semibold text-black mb-2">
-            {t('title.welcome')}
+            Välkommen till Axie Studio
           </h2>
           <p className="text-gray-600 text-sm">
-            {t('description.fillInfo')}
+            Fyll i dina uppgifter för att starta samtalet med vår AI-assistent
           </p>
         </div>
 
@@ -121,22 +102,32 @@ const UserInfoForm: React.FC<UserInfoFormProps> = ({ onSubmit, isSubmitting = fa
                 type="text"
                 value={firstName}
                 onChange={(e) => handleInputChange('firstName', e.target.value)}
-                placeholder={t('form.firstName.placeholder')}
-                className="w-full px-4 py-3 border border-gray-300 focus:border-black rounded-lg focus:ring-1 focus:ring-black outline-none transition-all text-black placeholder-gray-400 disabled:opacity-50 disabled:bg-gray-50"
+                placeholder="Förnamn"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-1 focus:ring-black outline-none transition-all text-black placeholder-gray-400 disabled:opacity-50 disabled:bg-gray-50 ${
+                  errors.firstName ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-black'
+                }`}
                 autoComplete="given-name"
                 disabled={isSubmitting}
               />
+              {errors.firstName && (
+                <p className="text-red-600 text-xs mt-1">{errors.firstName}</p>
+              )}
             </div>
             <div>
               <input
                 type="text"
                 value={lastName}
                 onChange={(e) => handleInputChange('lastName', e.target.value)}
-                placeholder={t('form.lastName.placeholder')}
-                className="w-full px-4 py-3 border border-gray-300 focus:border-black rounded-lg focus:ring-1 focus:ring-black outline-none transition-all text-black placeholder-gray-400 disabled:opacity-50 disabled:bg-gray-50"
+                placeholder="Efternamn"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-1 focus:ring-black outline-none transition-all text-black placeholder-gray-400 disabled:opacity-50 disabled:bg-gray-50 ${
+                  errors.lastName ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-black'
+                }`}
                 autoComplete="family-name"
                 disabled={isSubmitting}
               />
+              {errors.lastName && (
+                <p className="text-red-600 text-xs mt-1">{errors.lastName}</p>
+              )}
             </div>
           </div>
 
@@ -148,12 +139,17 @@ const UserInfoForm: React.FC<UserInfoFormProps> = ({ onSubmit, isSubmitting = fa
                 type="email"
                 value={email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
-                placeholder={t('form.email.placeholder')}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 focus:border-black rounded-lg focus:ring-1 focus:ring-black outline-none transition-all text-black placeholder-gray-400 disabled:opacity-50 disabled:bg-gray-50"
+                placeholder="din@email.com"
+                className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-1 focus:ring-black outline-none transition-all text-black placeholder-gray-400 disabled:opacity-50 disabled:bg-gray-50 ${
+                  errors.email ? 'border-red-300 focus:border-red-500' : 'border-gray-300 focus:border-black'
+                }`}
                 autoComplete="email"
                 disabled={isSubmitting}
               />
             </div>
+            {errors.email && (
+              <p className="text-red-600 text-xs mt-1">{errors.email}</p>
+            )}
           </div>
 
           {/* Terms Agreement */}
@@ -165,35 +161,28 @@ const UserInfoForm: React.FC<UserInfoFormProps> = ({ onSubmit, isSubmitting = fa
                 checked={agreedToTerms}
                 onChange={(e) => {
                   setAgreedToTerms(e.target.checked);
-                  if (termsError) {
-                    setTermsError('');
+                  if (errors.terms) {
+                    setErrors(prev => ({ ...prev, terms: '' }));
                   }
                 }}
                 className="mt-1 w-4 h-4 text-black border-gray-300 rounded focus:ring-black focus:ring-1"
                 disabled={isSubmitting}
               />
               <label htmlFor="terms" className="text-sm text-gray-700 leading-relaxed">
-                {t('terms.agreement')}{' '}
+                Genom att fortsätta godkänner du våra{' '}
                 <Link 
                   to="/terms" 
                   className="text-black hover:text-gray-700 font-medium underline transition-colors"
                   target="_blank"
                 >
-                  {t('terms.link')}
+                  villkor
                 </Link>
               </label>
             </div>
-            {termsError && (
-              <p className="text-red-600 text-xs">{termsError}</p>
+            {errors.terms && (
+              <p className="text-red-600 text-xs">{errors.terms}</p>
             )}
           </div>
-
-          {/* General form error */}
-          {error && (
-            <div className="text-red-600 text-xs">
-              {error}
-            </div>
-          )}
 
           {/* Submit Button */}
           <button
@@ -204,12 +193,12 @@ const UserInfoForm: React.FC<UserInfoFormProps> = ({ onSubmit, isSubmitting = fa
             {isSubmitting ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>{t('status.starting')}</span>
+                <span>Startar samtal...</span>
               </>
             ) : (
               <>
                 <Phone size={16} />
-                <span>{t('button.startCall')}</span>
+                <span>Starta AI-samtal</span>
               </>
             )}
           </button>

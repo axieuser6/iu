@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useConversation } from '@elevenlabs/react';
-import { useConnection } from '../contexts/ConnectionContext';
-import { useClientTools } from '../hooks/useClientTools';
-import { useWebhook } from '../hooks/useWebhook';
+import { Shield } from 'lucide-react';
 import VoiceOrb from '../components/VoiceOrb';
 import StatusIndicators from '../components/StatusIndicators';
 import PermissionWarning from '../components/PermissionWarning';
 import UserInfoForm from '../components/UserInfoForm';
+
+// Client tool result interface
 
 // Constants for better performance
 const CONNECTION_TIMEOUT = 8000;
@@ -19,14 +19,11 @@ interface UserInfo {
 }
 
 const HomePage: React.FC = () => {
-  const { isConnected: globalIsConnected, setIsConnected, isSecureConnection, setIsSecureConnection } = useConnection();
-  const { get_firstandlastname, get_email, get_info } = useClientTools();
-  const { sendToWebhook } = useWebhook();
-
   // State management with proper typing
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
+  const [isSecureConnection, setIsSecureConnection] = useState(false);
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isStartingCall, setIsStartingCall] = useState(false);
@@ -54,6 +51,152 @@ const HomePage: React.FC = () => {
     }
   }, []);
 
+  // Helper function to send data to webhook
+  const sendToWebhook = useCallback(async (data: any, source: string) => {
+    try {
+      const webhookUrl = 'https://stefan0987.app.n8n.cloud/webhook/803738bb-c134-4bdb-9720-5b1af902475f';
+      
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...data,
+          timestamp: new Date().toISOString(),
+          source: source
+        })
+      });
+
+      if (response.ok) {
+        console.log('✅ Data sent successfully to webhook:', data);
+        return true;
+      } else {
+        console.error('❌ Webhook POST request failed:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error sending data to webhook:', error);
+      return false;
+    }
+  }, []);
+  // Client tool: get_firstandlastname - Agent provides first and last name, we store and return it
+  const get_firstandlastname = useCallback(async (params?: { first_name?: string; last_name?: string }) => {
+    console.log('🔧 Agent requested user name via get_firstandlastname tool');
+    console.log('📥 Agent params (ignored):', params);
+    
+    // Get stored user info
+    const storedUserInfo = localStorage.getItem('axie_studio_user_info');
+    const currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : null;
+    
+    if (!currentUserInfo || !currentUserInfo.firstName || !currentUserInfo.lastName) {
+      console.log('❌ No stored user name found');
+      return {
+        first_name: '',
+        last_name: '',
+        success: false,
+        message: 'No user name stored locally'
+      };
+    }
+    
+    console.log('📂 Using stored user info:', currentUserInfo);
+    
+    // Send to webhook
+    await sendToWebhook({
+      first_name: currentUserInfo.firstName,
+      last_name: currentUserInfo.lastName,
+      full_name: `${currentUserInfo.firstName} ${currentUserInfo.lastName}`
+    }, 'agent_triggered_get_firstandlastname_tool');
+    
+    const response = {
+      first_name: currentUserInfo.firstName,
+      last_name: currentUserInfo.lastName,
+      success: true,
+      message: 'User name retrieved from local storage'
+    };
+
+    console.log('📤 Returning to agent:', response);
+    return response;
+  }, [sendToWebhook]);
+
+  // Client tool: get_email - Agent provides email, we store and return it
+  const get_email = useCallback(async (params?: { email?: string }) => {
+    console.log('🔧 Agent requested user email via get_email tool');
+    console.log('📥 Agent params (ignored):', params);
+    
+    // Get stored user info
+    const storedUserInfo = localStorage.getItem('axie_studio_user_info');
+    const currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : null;
+    
+    if (!currentUserInfo || !currentUserInfo.email) {
+      console.log('❌ No stored user email found');
+      return {
+        email: '',
+        success: false,
+        message: 'No user email stored locally'
+      };
+    }
+    
+    console.log('📂 Using stored user info:', currentUserInfo);
+    
+    // Send to webhook
+    await sendToWebhook({
+      email: currentUserInfo.email
+    }, 'agent_triggered_get_email_tool');
+    
+    const response = {
+      email: currentUserInfo.email,
+      success: true,
+      message: 'User email retrieved from local storage'
+    };
+
+    console.log('📤 Returning to agent:', response);
+    return response;
+  }, [sendToWebhook]);
+
+  // Client tool: get_info - Agent provides complete info, we store and return it
+  const get_info = useCallback(async (params?: { email?: string; first_name?: string; last_name?: string }) => {
+    console.log('🔧 Agent requested complete user info via get_info tool');
+    console.log('📥 Agent params (ignored):', params);
+    
+    // Get stored user info
+    const storedUserInfo = localStorage.getItem('axie_studio_user_info');
+    const currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : null;
+    
+    if (!currentUserInfo || !currentUserInfo.firstName || !currentUserInfo.lastName || !currentUserInfo.email) {
+      console.log('❌ Incomplete user info stored locally');
+      return {
+        email: currentUserInfo?.email || '',
+        first_name: currentUserInfo?.firstName || '',
+        last_name: currentUserInfo?.lastName || '',
+        success: false,
+        message: 'Incomplete user info stored locally'
+      };
+    }
+    
+    console.log('📂 Using stored user info:', currentUserInfo);
+    
+    // Send to webhook
+    await sendToWebhook({
+      email: currentUserInfo.email,
+      first_name: currentUserInfo.firstName,
+      last_name: currentUserInfo.lastName,
+      full_name: `${currentUserInfo.firstName} ${currentUserInfo.lastName}`
+    }, 'agent_triggered_get_info_tool');
+    
+    const response = {
+      email: currentUserInfo.email,
+      first_name: currentUserInfo.firstName,
+      last_name: currentUserInfo.lastName,
+      success: true,
+      message: 'Complete user info retrieved from local storage'
+    };
+
+    console.log('📤 Returning to agent:', response);
+    return response;
+  }, [sendToWebhook]);
+
+
   // Memoized agent ID with validation
   const agentId = useMemo(() => {
     const id = import.meta.env.VITE_AXIE_STUDIO_AGENT_ID || import.meta.env.VITE_ELEVENLABS_AGENT_ID;
@@ -71,26 +214,23 @@ const HomePage: React.FC = () => {
     onConnect: useCallback(() => {
       console.log('🔗 Connected to Axie Studio AI Assistant');
       
-      setIsConnected(true);
       setIsSecureConnection(true);
       setConnectionAttempts(0);
       setCallStartTime(Date.now());
       setIsStartingCall(false);
       
-    }, [setIsConnected, setIsSecureConnection]),
+    }, []),
     onDisconnect: useCallback(() => {
       console.log('🔌 Disconnected from Axie Studio AI Assistant');
-      setIsConnected(false);
       setIsSecureConnection(false);
       setCallStartTime(null);
       setIsStartingCall(false);
-    }, [setIsConnected, setIsSecureConnection]),
+    }, []),
     onMessage: useCallback((message) => {
       console.log('💬 Message received:', message);
     }, []),
     onError: useCallback((error) => {
       console.error('❌ Connection error:', error);
-      setIsConnected(false);
       setIsSecureConnection(false);
       
       setIsStartingCall(false);
@@ -102,7 +242,7 @@ const HomePage: React.FC = () => {
           console.log(`🔄 Retrying connection (${connectionAttempts + 1}/${RETRY_ATTEMPTS})`);
         }, 2000);
       }
-    }, [connectionAttempts, setIsConnected, setIsSecureConnection])
+    }, [connectionAttempts])
   });
 
   // Optimized microphone permission request with better UX
@@ -210,13 +350,12 @@ const HomePage: React.FC = () => {
     } catch (error) {
       console.error('❌ Error ending Axie Studio session:', error);
     } finally {
-      setIsConnected(false);
       setIsSecureConnection(false);
       setConnectionAttempts(0);
       // Don't clear userInfo - keep it stored locally
       setIsStartingCall(false);
     }
-  }, [conversation, setIsConnected, setIsSecureConnection]);
+  }, [conversation]);
 
   // Check initial permissions on mount
   useEffect(() => {
@@ -247,11 +386,11 @@ const HomePage: React.FC = () => {
 
   // Memoized connection status
   const connectionStatus = useMemo(() => {
-    const isConnected = globalIsConnected && conversation.status === 'connected';
+    const isConnected = conversation.status === 'connected';
     const isConnecting = conversation.status !== 'connected' && conversation.status !== 'disconnected';
     
     return { isConnected, isConnecting };
-  }, [globalIsConnected, conversation.status]);
+  }, [conversation.status]);
 
   const { isConnected, isConnecting } = connectionStatus;
 

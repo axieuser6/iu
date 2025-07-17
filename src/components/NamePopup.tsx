@@ -1,7 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import { X, User } from 'lucide-react';
-import { useFormSubmission } from '../hooks/useFormSubmission';
 
 interface NamePopupProps {
   isOpen: boolean;
@@ -18,52 +16,67 @@ const NamePopup: React.FC<NamePopupProps> = ({
   prompt = "Enter your name to continue:",
   autoTrigger = false
 }) => {
-  const { t } = useTranslation();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const validateName = useCallback((data: { firstName: string; lastName: string }) => {
+  const handleSubmit = useCallback(async () => {
+    if (isSubmitting) return;
+    
     const trimmedFirstName = firstName.trim();
     const trimmedLastName = lastName.trim();
     
     if (!trimmedFirstName) {
-      return t('error.firstName.required');
+      setError('Förnamn krävs');
+      return;
     }
 
     if (!trimmedLastName) {
-      return t('error.lastName.required');
+      setError('Efternamn krävs');
+      return;
     }
 
-    return null;
-  }, [firstName, lastName, t]);
+    setIsSubmitting(true);
+    setError('');
 
-  const { isSubmitting, error, submitForm, clearError } = useFormSubmission<{
-    first_name: string;
-    last_name: string;
-    full_name: string;
-    prompt: string;
-  }>({
-    onSuccess: (data) => {
-      console.log('✅ Name submitted successfully:', data.first_name, data.last_name);
-      onSubmit(data.first_name, data.last_name);
-      setFirstName('');
-      setLastName('');
-    },
-    webhookSource: autoTrigger ? 'auto_popup_name_during_call' : 'agent_triggered_get_firstandlastname_tool',
-    validateData: validateName
-  });
+    try {
+      // Send POST request to n8n webhook
+      const webhookUrl = 'https://stefan0987.app.n8n.cloud/webhook/803738bb-c134-4bdb-9720-5b1af902475f';
+      
+      console.log('👤 Sending name via POST to webhook:', trimmedFirstName, trimmedLastName);
+      
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          first_name: trimmedFirstName,
+          last_name: trimmedLastName,
+          full_name: `${trimmedFirstName} ${trimmedLastName}`,
+          timestamp: new Date().toISOString(),
+          source: autoTrigger ? 'auto_popup_name_during_call' : 'agent_triggered_get_firstandlastname_tool',
+          prompt: prompt
+        })
+      });
 
-  const handleSubmit = useCallback(async () => {
-    const trimmedFirstName = firstName.trim();
-    const trimmedLastName = lastName.trim();
-    
-    await submitForm({
-      first_name: trimmedFirstName,
-      last_name: trimmedLastName,
-      full_name: `${trimmedFirstName} ${trimmedLastName}`,
-      prompt: prompt
-    });
-  }, [firstName, lastName, prompt, submitForm]);
+      if (response.ok) {
+        console.log('✅ Name sent successfully via POST to webhook');
+        onSubmit(trimmedFirstName, trimmedLastName);
+        setFirstName('');
+        setLastName('');
+      } else {
+        console.error('❌ Webhook POST request failed:', response.status);
+        setError('Misslyckades att skicka namn. Försök igen.');
+      }
+    } catch (error) {
+      console.error('❌ Error sending name via POST to webhook:', error);
+      setError('Nätverksfel. Försök igen.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [firstName, lastName, isSubmitting, onSubmit, prompt, autoTrigger]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -79,10 +92,10 @@ const NamePopup: React.FC<NamePopupProps> = ({
     if (!isSubmitting) {
       setFirstName('');
       setLastName('');
-      clearError();
+      setError('');
       onClose();
     }
-  }, [isSubmitting, onClose, clearError]);
+  }, [isSubmitting, onClose]);
 
   if (!isOpen) return null;
 
@@ -96,7 +109,7 @@ const NamePopup: React.FC<NamePopupProps> = ({
               <User size={16} className="text-white" />
             </div>
             <h2 className="text-lg font-semibold text-black">
-              {autoTrigger ? t('title.activeCall') + ' - ' + t('title.nameRequired') : 'Axie Studio - ' + t('title.nameRequired')}
+              {autoTrigger ? 'Pågående Axie Studio samtal - Namn krävs' : 'Axie Studio - Namn krävs'}
             </h2>
           </div>
           {!autoTrigger && (
@@ -115,7 +128,7 @@ const NamePopup: React.FC<NamePopupProps> = ({
         <div className="p-6">
           <p className="text-gray-700 text-sm mb-4 leading-relaxed">
             {autoTrigger 
-              ? t('description.activeCallName')
+              ? 'Du är för närvarande i ett aktivt Axie Studio samtal. Vänligen ange ditt namn (Steg 1):' 
               : prompt
             }
           </p>
@@ -128,10 +141,10 @@ const NamePopup: React.FC<NamePopupProps> = ({
                   value={firstName}
                   onChange={(e) => {
                     setFirstName(e.target.value);
-                    if (error) clearError();
+                    if (error) setError('');
                   }}
                   onKeyDown={handleKeyPress}
-                  placeholder={t('form.firstName.placeholder')}
+                  placeholder="Förnamn"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-black focus:ring-1 focus:ring-black outline-none transition-all text-black placeholder-gray-400 disabled:opacity-50 disabled:bg-gray-50"
                   autoFocus
                   autoComplete="given-name"
@@ -144,10 +157,10 @@ const NamePopup: React.FC<NamePopupProps> = ({
                   value={lastName}
                   onChange={(e) => {
                     setLastName(e.target.value);
-                    if (error) clearError();
+                    if (error) setError('');
                   }}
                   onKeyDown={handleKeyPress}
-                  placeholder={t('form.lastName.placeholder')}
+                  placeholder="Efternamn"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-black focus:ring-1 focus:ring-black outline-none transition-all text-black placeholder-gray-400 disabled:opacity-50 disabled:bg-gray-50"
                   autoComplete="family-name"
                   disabled={isSubmitting}
@@ -168,7 +181,7 @@ const NamePopup: React.FC<NamePopupProps> = ({
                   disabled={isSubmitting}
                   className="flex-1 px-4 py-3 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
-                  {t('button.cancel')}
+                  Avbryt
                 </button>
               )}
               <button
@@ -179,10 +192,10 @@ const NamePopup: React.FC<NamePopupProps> = ({
                 {isSubmitting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    {autoTrigger ? t('status.processing') : t('status.submitting')}
+                    {autoTrigger ? 'Bearbetar samtal...' : 'Skickar...'}
                   </>
                 ) : (
-                  autoTrigger ? t('button.continue') : t('button.submit') + ' namn'
+                  autoTrigger ? 'Fortsätt samtal' : 'Skicka namn'
                 )}
               </button>
             </div>
