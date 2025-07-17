@@ -1,11 +1,10 @@
 import React from 'react';
 import { Shield } from 'lucide-react';
+import { useConnection } from '../contexts/ConnectionContext';
 
-interface HeaderProps {
-  isConnected: boolean;
-}
+const Header: React.FC = () => {
+  const { isConnected, isSecureConnection } = useConnection();
 
-const Header: React.FC<HeaderProps> = ({ isConnected }) => {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex items-center justify-between">
@@ -32,7 +31,9 @@ const Header: React.FC<HeaderProps> = ({ isConnected }) => {
         {isConnected && (
           <div className="flex items-center space-x-2 text-emerald-600">
             <Shield size={16} />
-            <span className="text-xs font-medium hidden sm:inline">Secure</span>
+            <span className="text-xs font-medium hidden sm:inline">
+              {isSecureConnection ? 'Secure' : 'Connected'}
+            </span>
           </div>
         )}
       </div>

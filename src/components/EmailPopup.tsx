@@ -1,5 +1,7 @@
 import React, { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Mail } from 'lucide-react';
+import { useFormSubmission } from '../hooks/useFormSubmission';
 
 interface EmailPopupProps {
   isOpen: boolean;
@@ -16,64 +18,42 @@ const EmailPopup: React.FC<EmailPopupProps> = ({
   prompt = "Enter your email to complete booking:",
   autoTrigger = false
 }) => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
 
-  const handleSubmit = useCallback(async () => {
-    if (isSubmitting) return;
-    
+  const validateEmail = useCallback((data: { email: string }) => {
     const trimmedEmail = email.trim();
     
     if (!trimmedEmail) {
-      setError('E-post krävs');
-      return;
+      return t('error.email.required');
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) {
-      setError('Vänligen ange en giltig e-postadress');
-      return;
+      return t('error.email.invalid');
     }
 
-    setIsSubmitting(true);
-    setError('');
+    return null;
+  }, [email, t]);
 
-    try {
-      // Send POST request to n8n webhook
-      const webhookUrl = 'https://stefan0987.app.n8n.cloud/webhook/803738bb-c134-4bdb-9720-5b1af902475f';
-      
-      console.log('📧 Sending email via POST to webhook:', trimmedEmail);
-      
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          email: trimmedEmail,
-          timestamp: new Date().toISOString(),
-          source: autoTrigger ? 'auto_popup_during_call' : 'agent_triggered_get_email_tool',
-          prompt: prompt
-        })
-      });
+  const { isSubmitting, error, submitForm, clearError } = useFormSubmission<{ email: string; prompt: string }>({
+    onSuccess: (data) => {
+      console.log('✅ Email submitted successfully:', data.email);
+      onSubmit(data.email);
+      setEmail('');
+    },
+    webhookSource: autoTrigger ? 'auto_popup_during_call' : 'agent_triggered_get_email_tool',
+    validateData: validateEmail
+  });
 
-      if (response.ok) {
-        console.log('✅ Email sent successfully via POST to webhook');
-        onSubmit(trimmedEmail);
-        setEmail('');
-      } else {
-        console.error('❌ Webhook POST request failed:', response.status);
-        setError('Misslyckades att skicka e-post. Försök igen.');
-      }
-    } catch (error) {
-      console.error('❌ Error sending email via POST to webhook:', error);
-      setError('Nätverksfel. Försök igen.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [email, isSubmitting, onSubmit]);
+  const handleSubmit = useCallback(async () => {
+    const trimmedEmail = email.trim();
+    await submitForm({
+      email: trimmedEmail,
+      prompt: prompt
+    });
+  }, [email, prompt, submitForm]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -88,10 +68,10 @@ const EmailPopup: React.FC<EmailPopupProps> = ({
   const handleClose = useCallback(() => {
     if (!isSubmitting) {
       setEmail('');
-      setError('');
+      clearError();
       onClose();
     }
-  }, [isSubmitting, onClose]);
+  }, [isSubmitting, onClose, clearError]);
 
   if (!isOpen) return null;
 
@@ -105,7 +85,7 @@ const EmailPopup: React.FC<EmailPopupProps> = ({
               <Mail size={16} className="text-white" />
             </div>
             <h2 className="text-lg font-semibold text-black">
-              {autoTrigger ? 'Pågående Axie Studio samtal - E-post krävs' : 'Axie Studio - E-post krävs'}
+              {autoTrigger ? t('title.activeCall') + ' - ' + t('title.emailRequired') : 'Axie Studio - ' + t('title.emailRequired')}
             </h2>
           </div>
           {!autoTrigger && (
@@ -124,7 +104,7 @@ const EmailPopup: React.FC<EmailPopupProps> = ({
         <div className="p-6">
           <p className="text-gray-700 text-sm mb-4 leading-relaxed">
             {autoTrigger 
-              ? 'Du är för närvarande i ett aktivt Axie Studio samtal. Vänligen ange din e-post (Steg 2):' 
+              ? t('description.activeCallEmail')
               : prompt
             }
           </p>
@@ -136,10 +116,10 @@ const EmailPopup: React.FC<EmailPopupProps> = ({
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
-                  if (error) setError('');
+                  if (error) clearError();
                 }}
                 onKeyDown={handleKeyPress}
-                placeholder="din@email.com"
+                placeholder={t('form.email.placeholder')}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-black focus:ring-1 focus:ring-black outline-none transition-all text-black placeholder-gray-400 disabled:opacity-50 disabled:bg-gray-50"
                 autoFocus
                 autoComplete="email"
@@ -147,11 +127,7 @@ const EmailPopup: React.FC<EmailPopupProps> = ({
               />
               {error && (
                 <p className="text-red-600 text-xs mt-2">
-                  {error === 'Email is required' ? 'E-post krävs' :
-                   error === 'Please enter a valid email address' ? 'Vänligen ange en giltig e-postadress' :
-                   error === 'Failed to submit email. Please try again.' ? 'Misslyckades att skicka e-post. Försök igen.' :
-                   error === 'Network error. Please try again.' ? 'Nätverksfel. Försök igen.' :
-                   error}
+                  {error}
                 </p>
               )}
             </div>
@@ -163,7 +139,7 @@ const EmailPopup: React.FC<EmailPopupProps> = ({
                   disabled={isSubmitting}
                   className="flex-1 px-4 py-3 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
-                  Avbryt
+                  {t('button.cancel')}
                 </button>
               )}
               <button
@@ -174,10 +150,10 @@ const EmailPopup: React.FC<EmailPopupProps> = ({
                 {isSubmitting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    {autoTrigger ? 'Bearbetar samtal...' : 'Skickar...'}
+                    {autoTrigger ? t('status.processing') : t('status.submitting')}
                   </>
                 ) : (
-                  autoTrigger ? 'Fortsätt samtal' : 'Skicka e-post'
+                  autoTrigger ? t('button.continue') : t('button.submit') + ' e-post'
                 )}
               </button>
             </div>
