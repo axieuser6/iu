@@ -339,7 +339,7 @@ const HomePage: React.FC = () => {
   const { isConnected, isConnecting } = connectionStatus;
 
   // Show form if user hasn't submitted info yet
-  if (!userInfo && !isConnected) {
+  if (!userInfo) {
     return (
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8">
         <UserInfoForm 
@@ -362,7 +362,7 @@ const HomePage: React.FC = () => {
             isSpeaking={conversation.isSpeaking}
             hasPermission={hasPermission}
             connectionAttempts={connectionAttempts}
-            onCallClick={handleEndSession}
+            onCallClick={isConnected ? handleEndSession : startSession}
           />
 
           <StatusIndicators
