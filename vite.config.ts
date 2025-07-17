@@ -23,11 +23,13 @@ export default defineConfig({
     },
   },
   server: {
-    https: true, // Set to true in production with proper certificates
+    https: false, // Disable HTTPS in development to avoid certificate issues
     headers: {
-      'Cross-Origin-Embedder-Policy': 'require-corp',
-      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
     },
+    host: 'localhost',
+    port: 5173,
   },
   optimizeDeps: {
     exclude: ['lucide-react'],
