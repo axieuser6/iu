@@ -81,37 +81,38 @@ const HomePage: React.FC = () => {
     }
   }, []);
   // Client tool: get_firstandlastname - Agent provides first and last name, we store and return it
-  const get_firstandlastname = useCallback(async (params: { first_name: string; last_name: string }) => {
+  const get_firstandlastname = useCallback(async (params?: { first_name?: string; last_name?: string }) => {
     console.log('🔧 Agent requested user name via get_firstandlastname tool');
-    console.log('📥 Received from agent:', params);
+    console.log('📥 Agent params (ignored):', params);
     
-    // Get stored user info or use agent provided data
+    // Get stored user info
     const storedUserInfo = localStorage.getItem('axie_studio_user_info');
-    let currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : null;
+    const currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : null;
     
-    // Update with agent provided data
-    const updatedUserInfo = {
-      firstName: params.first_name,
-      lastName: params.last_name,
-      email: currentUserInfo?.email || ''
-    };
+    if (!currentUserInfo || !currentUserInfo.firstName || !currentUserInfo.lastName) {
+      console.log('❌ No stored user name found');
+      return {
+        first_name: '',
+        last_name: '',
+        success: false,
+        message: 'No user name stored locally'
+      };
+    }
     
-    // Store updated info
-    localStorage.setItem('axie_studio_user_info', JSON.stringify(updatedUserInfo));
-    setUserInfo(updatedUserInfo);
+    console.log('📂 Using stored user info:', currentUserInfo);
     
     // Send to webhook
     await sendToWebhook({
-      first_name: params.first_name,
-      last_name: params.last_name,
-      full_name: `${params.first_name} ${params.last_name}`
+      first_name: currentUserInfo.firstName,
+      last_name: currentUserInfo.lastName,
+      full_name: `${currentUserInfo.firstName} ${currentUserInfo.lastName}`
     }, 'agent_triggered_get_firstandlastname_tool');
     
     const response = {
-      first_name: params.first_name,
-      last_name: params.last_name,
+      first_name: currentUserInfo.firstName,
+      last_name: currentUserInfo.lastName,
       success: true,
-      message: 'User name received and stored successfully'
+      message: 'User name retrieved from local storage'
     };
 
     console.log('📤 Returning to agent:', response);
@@ -119,34 +120,34 @@ const HomePage: React.FC = () => {
   }, [sendToWebhook]);
 
   // Client tool: get_email - Agent provides email, we store and return it
-  const get_email = useCallback(async (params: { email: string }) => {
+  const get_email = useCallback(async (params?: { email?: string }) => {
     console.log('🔧 Agent requested user email via get_email tool');
-    console.log('📥 Received from agent:', params);
+    console.log('📥 Agent params (ignored):', params);
     
-    // Get stored user info or create new
+    // Get stored user info
     const storedUserInfo = localStorage.getItem('axie_studio_user_info');
-    let currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : {};
+    const currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : null;
     
-    // Update with agent provided data
-    const updatedUserInfo = {
-      firstName: currentUserInfo.firstName || '',
-      lastName: currentUserInfo.lastName || '',
-      email: params.email
-    };
+    if (!currentUserInfo || !currentUserInfo.email) {
+      console.log('❌ No stored user email found');
+      return {
+        email: '',
+        success: false,
+        message: 'No user email stored locally'
+      };
+    }
     
-    // Store updated info
-    localStorage.setItem('axie_studio_user_info', JSON.stringify(updatedUserInfo));
-    setUserInfo(updatedUserInfo);
+    console.log('📂 Using stored user info:', currentUserInfo);
     
     // Send to webhook
     await sendToWebhook({
-      email: params.email
+      email: currentUserInfo.email
     }, 'agent_triggered_get_email_tool');
     
     const response = {
-      email: params.email,
+      email: currentUserInfo.email,
       success: true,
-      message: 'User email received and stored successfully'
+      message: 'User email retrieved from local storage'
     };
 
     console.log('📤 Returning to agent:', response);
@@ -154,35 +155,41 @@ const HomePage: React.FC = () => {
   }, [sendToWebhook]);
 
   // Client tool: get_info - Agent provides complete info, we store and return it
-  const get_info = useCallback(async (params: { email: string; first_name: string; last_name: string }) => {
+  const get_info = useCallback(async (params?: { email?: string; first_name?: string; last_name?: string }) => {
     console.log('🔧 Agent requested complete user info via get_info tool');
-    console.log('📥 Received from agent:', params);
+    console.log('📥 Agent params (ignored):', params);
     
-    // Update with agent provided data
-    const updatedUserInfo = {
-      firstName: params.first_name,
-      lastName: params.last_name,
-      email: params.email
-    };
+    // Get stored user info
+    const storedUserInfo = localStorage.getItem('axie_studio_user_info');
+    const currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : null;
     
-    // Store updated info
-    localStorage.setItem('axie_studio_user_info', JSON.stringify(updatedUserInfo));
-    setUserInfo(updatedUserInfo);
+    if (!currentUserInfo || !currentUserInfo.firstName || !currentUserInfo.lastName || !currentUserInfo.email) {
+      console.log('❌ Incomplete user info stored locally');
+      return {
+        email: currentUserInfo?.email || '',
+        first_name: currentUserInfo?.firstName || '',
+        last_name: currentUserInfo?.lastName || '',
+        success: false,
+        message: 'Incomplete user info stored locally'
+      };
+    }
+    
+    console.log('📂 Using stored user info:', currentUserInfo);
     
     // Send to webhook
     await sendToWebhook({
-      email: params.email,
-      first_name: params.first_name,
-      last_name: params.last_name,
-      full_name: `${params.first_name} ${params.last_name}`
+      email: currentUserInfo.email,
+      first_name: currentUserInfo.firstName,
+      last_name: currentUserInfo.lastName,
+      full_name: `${currentUserInfo.firstName} ${currentUserInfo.lastName}`
     }, 'agent_triggered_get_info_tool');
     
     const response = {
-      email: params.email,
-      first_name: params.first_name,
-      last_name: params.last_name,
+      email: currentUserInfo.email,
+      first_name: currentUserInfo.firstName,
+      last_name: currentUserInfo.lastName,
       success: true,
-      message: 'Complete user info received and stored successfully'
+      message: 'Complete user info retrieved from local storage'
     };
 
     console.log('📤 Returning to agent:', response);
