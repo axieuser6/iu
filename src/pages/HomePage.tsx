@@ -8,8 +8,9 @@ import UserInfoForm from '../components/UserInfoForm';
 
 // Client tool result interface
 interface GetInfoResult {
+  first_name: string;
+  last_name: string;
   email: string;
-  name: string;
   success: boolean;
   message: string;
 }
@@ -49,8 +50,9 @@ const HomePage: React.FC = () => {
     }
 
     const result = {
+      first_name: userInfo.firstName,
+      last_name: userInfo.lastName,
       email: userInfo.email,
-      name: `${userInfo.firstName} ${userInfo.lastName}`,
       success: true,
       message: 'User information retrieved successfully'
     };
