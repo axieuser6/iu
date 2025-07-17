@@ -7,9 +7,14 @@ import PermissionWarning from '../components/PermissionWarning';
 import UserInfoForm from '../components/UserInfoForm';
 
 // Client tool result interface
-interface GetInfoResult {
+interface GetNameResult {
   first_name: string;
   last_name: string;
+  success: boolean;
+  message: string;
+}
+
+interface GetEmailResult {
   email: string;
   success: boolean;
   message: string;
@@ -35,28 +40,52 @@ const HomePage: React.FC = () => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isStartingCall, setIsStartingCall] = useState(false);
 
-  // Client tool: get_info - Provides user information to the agent
-  const get_info = useCallback(async () => {
-    console.log('🔧 Agent requested user info via get_info tool');
+  // Client tool: get_firstandlastname - Provides user's first and last name to the agent
+  const get_firstandlastname = useCallback(async () => {
+    console.log('🔧 Agent requested user name via get_firstandlastname tool');
+    
+    if (!userInfo) {
+      return { 
+        first_name: '', 
+        last_name: '', 
+        success: false, 
+        message: 'User name not available' 
+      };
+    }
+
+    // Return user name directly to agent
+    const response = {
+      first_name: userInfo.firstName,
+      last_name: userInfo.lastName,
+      success: true,
+      message: 'User name retrieved successfully'
+    };
+
+    console.log('📤 Returning user name to agent:', response);
+    
+    return response;
+  }, [userInfo]);
+
+  // Client tool: get_email - Provides user's email to the agent
+  const get_email = useCallback(async () => {
+    console.log('🔧 Agent requested user email via get_email tool');
     
     if (!userInfo) {
       return { 
         email: '', 
-        name: '', 
         success: false, 
-        message: 'User information not available' 
+        message: 'User email not available' 
       };
     }
 
-    // Return user information directly to agent
+    // Return user email directly to agent
     const response = {
       email: userInfo.email,
-      name: `${userInfo.firstName} ${userInfo.lastName}`,
       success: true,
-      message: 'User information retrieved successfully'
+      message: 'User email retrieved successfully'
     };
 
-    console.log('📤 Returning user info to agent:', response);
+    console.log('📤 Returning user email to agent:', response);
     
     return response;
   }, [userInfo]);
@@ -74,7 +103,7 @@ const HomePage: React.FC = () => {
 
   // Enhanced conversation configuration
   const conversation = useConversation({
-    clientTools: { get_info },
+    clientTools: { get_firstandlastname, get_email },
     onConnect: useCallback(() => {
       console.log('🔗 Connected to Axie Studio AI Assistant');
       
@@ -206,7 +235,7 @@ const HomePage: React.FC = () => {
 
       await Promise.race([sessionPromise, timeoutPromise]);
       console.log('✅ Axie Studio session started successfully');
-      console.log('🔧 Agent can now call get_info tool to retrieve user information');
+      console.log('🔧 Agent can now call get_firstandlastname and get_email tools to retrieve user information');
       
     } catch (error) {
       console.error('❌ Failed to start Axie Studio session:', error);
