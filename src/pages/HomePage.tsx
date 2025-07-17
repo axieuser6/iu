@@ -89,9 +89,14 @@ const HomePage: React.FC = () => {
     const storedUserInfo = localStorage.getItem('axie_studio_user_info');
     let currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : {};
     
-    // Use stored data if available, otherwise fall back to agent data
-    const actualFirstName = currentUserInfo.firstName || params.first_name;
-    const actualLastName = currentUserInfo.lastName || params.last_name;
+    // Always use stored data if available, ignore agent placeholders
+    const actualFirstName = currentUserInfo.firstName || '';
+    const actualLastName = currentUserInfo.lastName || '';
+    
+    // If no stored data, this indicates a problem - log it
+    if (!actualFirstName || !actualLastName) {
+      console.warn('⚠️ No stored user name found, agent may be sending placeholders');
+    }
     
     const updatedUserInfo = {
       firstName: actualFirstName,
@@ -130,8 +135,13 @@ const HomePage: React.FC = () => {
     const storedUserInfo = localStorage.getItem('axie_studio_user_info');
     let currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : {};
     
-    // Use stored data if available, otherwise fall back to agent data
-    const actualEmail = currentUserInfo.email || params.email;
+    // Always use stored data if available, ignore agent placeholders
+    const actualEmail = currentUserInfo.email || '';
+    
+    // If no stored data, this indicates a problem - log it
+    if (!actualEmail) {
+      console.warn('⚠️ No stored user email found, agent may be sending placeholders');
+    }
     
     const updatedUserInfo = {
       firstName: currentUserInfo.firstName || '',
@@ -167,10 +177,15 @@ const HomePage: React.FC = () => {
     const storedUserInfo = localStorage.getItem('axie_studio_user_info');
     let currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : {};
     
-    // Use stored data if available, otherwise fall back to agent data
-    const actualFirstName = currentUserInfo.firstName || params.first_name;
-    const actualLastName = currentUserInfo.lastName || params.last_name;
-    const actualEmail = currentUserInfo.email || params.email;
+    // Always use stored data if available, ignore agent placeholders
+    const actualFirstName = currentUserInfo.firstName || '';
+    const actualLastName = currentUserInfo.lastName || '';
+    const actualEmail = currentUserInfo.email || '';
+    
+    // If no stored data, this indicates a problem - log it
+    if (!actualFirstName || !actualLastName || !actualEmail) {
+      console.warn('⚠️ Incomplete stored user info found, agent may be sending placeholders');
+    }
     
     const updatedUserInfo = {
       firstName: actualFirstName,
@@ -231,6 +246,11 @@ const HomePage: React.FC = () => {
       setIsSecureConnection(false);
       setCallStartTime(null);
       setIsStartingCall(false);
+      
+      // Clear stored user data when call ends
+      localStorage.removeItem('axie_studio_user_info');
+      setUserInfo(null);
+      console.log('🗑️ Local user data cleared after call ended');
     }, []),
     onMessage: useCallback((message) => {
       console.log('💬 Message received:', message);
@@ -358,7 +378,10 @@ const HomePage: React.FC = () => {
     } finally {
       setIsSecureConnection(false);
       setConnectionAttempts(0);
-      // Don't clear userInfo - keep it stored locally
+      // Clear stored user data when session ends
+      localStorage.removeItem('axie_studio_user_info');
+      setUserInfo(null);
+      console.log('🗑️ Local user data cleared after session ended');
       setIsStartingCall(false);
     }
   }, [conversation]);
