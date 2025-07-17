@@ -23,7 +23,7 @@ export default defineConfig({
     },
   },
   server: {
-    https: false, // Set to true in production with proper certificates
+    https: true, // Set to true in production with proper certificates
     headers: {
       'Cross-Origin-Embedder-Policy': 'require-corp',
       'Cross-Origin-Opener-Policy': 'same-origin',
