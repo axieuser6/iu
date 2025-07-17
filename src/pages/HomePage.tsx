@@ -246,6 +246,11 @@ const HomePage: React.FC = () => {
       setIsSecureConnection(false);
       setCallStartTime(null);
       setIsStartingCall(false);
+      
+      // Clear stored user data when call ends
+      localStorage.removeItem('axie_studio_user_info');
+      setUserInfo(null);
+      console.log('🗑️ Local user data cleared after call ended');
     }, []),
     onMessage: useCallback((message) => {
       console.log('💬 Message received:', message);
@@ -373,7 +378,10 @@ const HomePage: React.FC = () => {
     } finally {
       setIsSecureConnection(false);
       setConnectionAttempts(0);
-      // Don't clear userInfo - keep it stored locally
+      // Clear stored user data when session ends
+      localStorage.removeItem('axie_studio_user_info');
+      setUserInfo(null);
+      console.log('🗑️ Local user data cleared after session ended');
       setIsStartingCall(false);
     }
   }, [conversation]);
