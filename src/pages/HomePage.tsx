@@ -6,6 +6,20 @@ import StatusIndicators from '../components/StatusIndicators';
 import PermissionWarning from '../components/PermissionWarning';
 import UserInfoForm from '../components/UserInfoForm';
 
+// Client tool result interface
+interface GetNameResult {
+  first_name: string;
+  last_name: string;
+  success: boolean;
+  message: string;
+}
+
+interface GetEmailResult {
+  email: string;
+  success: boolean;
+  message: string;
+}
+
 // Constants for better performance
 const CONNECTION_TIMEOUT = 8000;
 const RETRY_ATTEMPTS = 3;
@@ -26,6 +40,82 @@ const HomePage: React.FC = () => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isStartingCall, setIsStartingCall] = useState(false);
 
+  // Client tool: get_firstandlastname - Provides user's first and last name to the agent
+  const get_firstandlastname = useCallback(async () => {
+    console.log('🔧 Agent requested user name via get_firstandlastname tool');
+    
+    if (!userInfo) {
+      return { 
+        first_name: '', 
+        last_name: '', 
+        success: false, 
+        message: 'User name not available' 
+      };
+    }
+
+    // Return user name directly to agent
+    const response = {
+      first_name: userInfo.firstName,
+      last_name: userInfo.lastName,
+      success: true,
+      message: 'User name retrieved successfully'
+    };
+
+    console.log('📤 Returning user name to agent:', response);
+    
+    return response;
+  }, [userInfo]);
+
+  // Client tool: get_email - Provides user's email to the agent
+  const get_email = useCallback(async () => {
+    console.log('🔧 Agent requested user email via get_email tool');
+    
+    if (!userInfo) {
+      return { 
+        email: '', 
+        success: false, 
+        message: 'User email not available' 
+      };
+    }
+
+    // Return user email directly to agent
+    const response = {
+      email: userInfo.email,
+      success: true,
+      message: 'User email retrieved successfully'
+    };
+
+    console.log('📤 Returning user email to agent:', response);
+    
+    return response;
+  }, [userInfo]);
+
+  // Client tool: get_info - Provides complete user information to the agent
+  const get_info = useCallback(async () => {
+    console.log('🔧 Agent requested complete user info via get_info tool');
+    
+    if (!userInfo) {
+      return { 
+        email: '',
+        name: '',
+        success: false, 
+        message: 'User information not available' 
+      };
+    }
+
+    // Return complete user info directly to agent
+    const response = {
+      email: userInfo.email,
+      name: `${userInfo.firstName} ${userInfo.lastName}`,
+      success: true,
+      message: 'User information retrieved successfully'
+    };
+
+    console.log('📤 Returning complete user info to agent:', response);
+    
+    return response;
+  }, [userInfo]);
+
   // Memoized agent ID with validation
   const agentId = useMemo(() => {
     const id = import.meta.env.VITE_AXIE_STUDIO_AGENT_ID || import.meta.env.VITE_ELEVENLABS_AGENT_ID;
@@ -39,6 +129,7 @@ const HomePage: React.FC = () => {
 
   // Enhanced conversation configuration
   const conversation = useConversation({
+    clientTools: { get_firstandlastname, get_email, get_info },
     onConnect: useCallback(() => {
       console.log('🔗 Connected to Axie Studio AI Assistant');
       
@@ -47,35 +138,6 @@ const HomePage: React.FC = () => {
       setCallStartTime(Date.now());
       setIsStartingCall(false);
       
-      // Send user information as first message after connection is established
-      if (userInfo) {
-        const userMessage = `Hej! Mitt namn är ${userInfo.firstName} ${userInfo.lastName} och min e-post är ${userInfo.email}. Jag har godkänt villkoren och är redo att börja samtalet.`;
-        console.log('📤 Sending user info to AI agent:', userMessage);
-        
-        // Send the message to the AI agent immediately after connection
-        console.log('🔍 Available conversation methods:', Object.keys(conversation));
-        console.log('🔍 Conversation status:', conversation.status);
-        
-        // Try multiple approaches to send the message
-        const sendUserInfo = () => {
-          try {
-            if (typeof conversation.sendUserMessage === 'function') {
-              conversation.sendUserMessage(userMessage);
-              console.log('✅ User info sent via sendUserMessage:', userMessage);
-            } else {
-              console.error('❌ sendUserMessage method not available');
-              console.log('🔍 Conversation object:', conversation);
-            }
-          } catch (error) {
-            console.error('❌ Error sending user info to agent:', error);
-          }
-        };
-        
-        // Send immediately and also with delay as backup
-        sendUserInfo();
-        setTimeout(sendUserInfo, 500);
-        setTimeout(sendUserInfo, 1500);
-      }
     }, [userInfo]),
     onDisconnect: useCallback(() => {
       console.log('🔌 Disconnected from Axie Studio AI Assistant');
@@ -199,6 +261,7 @@ const HomePage: React.FC = () => {
 
       await Promise.race([sessionPromise, timeoutPromise]);
       console.log('✅ Axie Studio session started successfully');
+      console.log('🔧 Agent can now call get_firstandlastname and get_email tools to retrieve user information');
       
     } catch (error) {
       console.error('❌ Failed to start Axie Studio session:', error);
@@ -210,7 +273,7 @@ const HomePage: React.FC = () => {
         setTimeout(() => startSession(), 1000);
       }
     }
-  }, [agentId, conversation, connectionAttempts]);
+  }, [agentId, conversation, connectionAttempts, userInfo]);
 
   // Optimized session end with cleanup
   const handleEndSession = useCallback(async () => {
