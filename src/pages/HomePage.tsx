@@ -90,6 +90,32 @@ const HomePage: React.FC = () => {
     return response;
   }, [userInfo]);
 
+  // Client tool: get_info - Provides complete user information to the agent
+  const get_info = useCallback(async () => {
+    console.log('🔧 Agent requested complete user info via get_info tool');
+    
+    if (!userInfo) {
+      return { 
+        email: '',
+        name: '',
+        success: false, 
+        message: 'User information not available' 
+      };
+    }
+
+    // Return complete user info directly to agent
+    const response = {
+      email: userInfo.email,
+      name: `${userInfo.firstName} ${userInfo.lastName}`,
+      success: true,
+      message: 'User information retrieved successfully'
+    };
+
+    console.log('📤 Returning complete user info to agent:', response);
+    
+    return response;
+  }, [userInfo]);
+
   // Memoized agent ID with validation
   const agentId = useMemo(() => {
     const id = import.meta.env.VITE_AXIE_STUDIO_AGENT_ID || import.meta.env.VITE_ELEVENLABS_AGENT_ID;
@@ -103,7 +129,7 @@ const HomePage: React.FC = () => {
 
   // Enhanced conversation configuration
   const conversation = useConversation({
-    clientTools: { get_firstandlastname, get_email },
+    clientTools: { get_firstandlastname, get_email, get_info },
     onConnect: useCallback(() => {
       console.log('🔗 Connected to Axie Studio AI Assistant');
       
