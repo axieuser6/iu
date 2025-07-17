@@ -7,18 +7,6 @@ import PermissionWarning from '../components/PermissionWarning';
 import UserInfoForm from '../components/UserInfoForm';
 
 // Client tool result interface
-interface GetNameResult {
-  first_name: string;
-  last_name: string;
-  success: boolean;
-  message: string;
-}
-
-interface GetEmailResult {
-  email: string;
-  success: boolean;
-  message: string;
-}
 
 // Constants for better performance
 const CONNECTION_TIMEOUT = 8000;
@@ -40,81 +28,168 @@ const HomePage: React.FC = () => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isStartingCall, setIsStartingCall] = useState(false);
 
-  // Client tool: get_firstandlastname - Provides user's first and last name to the agent
-  const get_firstandlastname = useCallback(async () => {
+  // Store user info in localStorage when it's set
+  useEffect(() => {
+    if (userInfo) {
+      localStorage.setItem('axie_studio_user_info', JSON.stringify(userInfo));
+      console.log('💾 User info stored locally:', userInfo);
+    }
+  }, [userInfo]);
+
+  // Load user info from localStorage on mount
+  useEffect(() => {
+    const storedUserInfo = localStorage.getItem('axie_studio_user_info');
+    if (storedUserInfo) {
+      try {
+        const parsed = JSON.parse(storedUserInfo);
+        setUserInfo(parsed);
+        console.log('📂 User info loaded from localStorage:', parsed);
+      } catch (error) {
+        console.error('❌ Failed to parse stored user info:', error);
+        localStorage.removeItem('axie_studio_user_info');
+      }
+    }
+  }, []);
+
+  // Helper function to send data to webhook
+  const sendToWebhook = useCallback(async (data: any, source: string) => {
+    try {
+      const webhookUrl = 'https://stefan0987.app.n8n.cloud/webhook/803738bb-c134-4bdb-9720-5b1af902475f';
+      
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...data,
+          timestamp: new Date().toISOString(),
+          source: source
+        })
+      });
+
+      if (response.ok) {
+        console.log('✅ Data sent successfully to webhook:', data);
+        return true;
+      } else {
+        console.error('❌ Webhook POST request failed:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error sending data to webhook:', error);
+      return false;
+    }
+  }, []);
+  // Client tool: get_firstandlastname - Agent provides first and last name, we store and return it
+  const get_firstandlastname = useCallback(async (params: { first_name: string; last_name: string }) => {
     console.log('🔧 Agent requested user name via get_firstandlastname tool');
+    console.log('📥 Received from agent:', params);
     
-    if (!userInfo) {
-      return { 
-        first_name: '', 
-        last_name: '', 
-        success: false, 
-        message: 'User name not available' 
-      };
-    }
-
-    // Return user name directly to agent
+    // Get stored user info or use agent provided data
+    const storedUserInfo = localStorage.getItem('axie_studio_user_info');
+    let currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : null;
+    
+    // Update with agent provided data
+    const updatedUserInfo = {
+      firstName: params.first_name,
+      lastName: params.last_name,
+      email: currentUserInfo?.email || ''
+    };
+    
+    // Store updated info
+    localStorage.setItem('axie_studio_user_info', JSON.stringify(updatedUserInfo));
+    setUserInfo(updatedUserInfo);
+    
+    // Send to webhook
+    await sendToWebhook({
+      first_name: params.first_name,
+      last_name: params.last_name,
+      full_name: `${params.first_name} ${params.last_name}`
+    }, 'agent_triggered_get_firstandlastname_tool');
+    
     const response = {
-      first_name: userInfo.firstName,
-      last_name: userInfo.lastName,
+      first_name: params.first_name,
+      last_name: params.last_name,
       success: true,
-      message: 'User name retrieved successfully'
+      message: 'User name received and stored successfully'
     };
 
-    console.log('📤 Returning user name to agent:', response);
-    
+    console.log('📤 Returning to agent:', response);
     return response;
-  }, [userInfo]);
+  }, [sendToWebhook]);
 
-  // Client tool: get_email - Provides user's email to the agent
-  const get_email = useCallback(async () => {
+  // Client tool: get_email - Agent provides email, we store and return it
+  const get_email = useCallback(async (params: { email: string }) => {
     console.log('🔧 Agent requested user email via get_email tool');
+    console.log('📥 Received from agent:', params);
     
-    if (!userInfo) {
-      return { 
-        email: '', 
-        success: false, 
-        message: 'User email not available' 
-      };
-    }
-
-    // Return user email directly to agent
+    // Get stored user info or create new
+    const storedUserInfo = localStorage.getItem('axie_studio_user_info');
+    let currentUserInfo = storedUserInfo ? JSON.parse(storedUserInfo) : {};
+    
+    // Update with agent provided data
+    const updatedUserInfo = {
+      firstName: currentUserInfo.firstName || '',
+      lastName: currentUserInfo.lastName || '',
+      email: params.email
+    };
+    
+    // Store updated info
+    localStorage.setItem('axie_studio_user_info', JSON.stringify(updatedUserInfo));
+    setUserInfo(updatedUserInfo);
+    
+    // Send to webhook
+    await sendToWebhook({
+      email: params.email
+    }, 'agent_triggered_get_email_tool');
+    
     const response = {
-      email: userInfo.email,
+      email: params.email,
       success: true,
-      message: 'User email retrieved successfully'
+      message: 'User email received and stored successfully'
     };
 
-    console.log('📤 Returning user email to agent:', response);
-    
+    console.log('📤 Returning to agent:', response);
     return response;
-  }, [userInfo]);
+  }, [sendToWebhook]);
 
-  // Client tool: get_info - Provides complete user information to the agent
-  const get_info = useCallback(async () => {
+  // Client tool: get_info - Agent provides complete info, we store and return it
+  const get_info = useCallback(async (params: { email: string; first_name: string; last_name: string }) => {
     console.log('🔧 Agent requested complete user info via get_info tool');
+    console.log('📥 Received from agent:', params);
     
-    if (!userInfo) {
-      return { 
-        email: '',
-        name: '',
-        success: false, 
-        message: 'User information not available' 
-      };
-    }
-
-    // Return complete user info directly to agent
+    // Update with agent provided data
+    const updatedUserInfo = {
+      firstName: params.first_name,
+      lastName: params.last_name,
+      email: params.email
+    };
+    
+    // Store updated info
+    localStorage.setItem('axie_studio_user_info', JSON.stringify(updatedUserInfo));
+    setUserInfo(updatedUserInfo);
+    
+    // Send to webhook
+    await sendToWebhook({
+      email: params.email,
+      first_name: params.first_name,
+      last_name: params.last_name,
+      full_name: `${params.first_name} ${params.last_name}`
+    }, 'agent_triggered_get_info_tool');
+    
     const response = {
-      email: userInfo.email,
-      name: `${userInfo.firstName} ${userInfo.lastName}`,
+      email: params.email,
+      first_name: params.first_name,
+      last_name: params.last_name,
       success: true,
-      message: 'User information retrieved successfully'
+      message: 'Complete user info received and stored successfully'
     };
 
-    console.log('📤 Returning complete user info to agent:', response);
-    
+    console.log('📤 Returning to agent:', response);
     return response;
-  }, [userInfo]);
+  }, [sendToWebhook]);
+    }
+
 
   // Memoized agent ID with validation
   const agentId = useMemo(() => {
@@ -138,7 +213,7 @@ const HomePage: React.FC = () => {
       setCallStartTime(Date.now());
       setIsStartingCall(false);
       
-    }, [userInfo]),
+    }, []),
     onDisconnect: useCallback(() => {
       console.log('🔌 Disconnected from Axie Studio AI Assistant');
       setIsSecureConnection(false);
@@ -200,30 +275,14 @@ const HomePage: React.FC = () => {
     setUserInfo(info);
     setIsStartingCall(true);
     
-    // Send to webhook
-    try {
-      const webhookUrl = 'https://stefan0987.app.n8n.cloud/webhook/803738bb-c134-4bdb-9720-5b1af902475f';
-      
-      await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          first_name: info.firstName,
-          last_name: info.lastName,
-          email: info.email,
-          full_name: `${info.firstName} ${info.lastName}`,
-          timestamp: new Date().toISOString(),
-          source: 'pre_call_form_submission',
-          prompt: 'User submitted information before starting AI call'
-        })
-      });
-      
-      console.log('✅ User info sent to webhook');
-    } catch (error) {
-      console.error('❌ Failed to send user info to webhook:', error);
-    }
+    // Send to webhook using helper function
+    await sendToWebhook({
+      first_name: info.firstName,
+      last_name: info.lastName,
+      email: info.email,
+      full_name: `${info.firstName} ${info.lastName}`,
+      prompt: 'User submitted information before starting AI call'
+    }, 'pre_call_form_submission');
     
     // Check microphone permission first
     if (!hasPermission) {
@@ -236,7 +295,7 @@ const HomePage: React.FC = () => {
     
     // Start the session
     await startSession();
-  }, [hasPermission, requestMicrophonePermission]);
+  }, [hasPermission, requestMicrophonePermission, sendToWebhook]);
 
   // Enhanced session management
   const startSession = useCallback(async () => {
@@ -261,7 +320,7 @@ const HomePage: React.FC = () => {
 
       await Promise.race([sessionPromise, timeoutPromise]);
       console.log('✅ Axie Studio session started successfully');
-      console.log('🔧 Agent can now call get_firstandlastname and get_email tools to retrieve user information');
+      console.log('🔧 Agent can now call get_firstandlastname, get_email, and get_info tools to receive and store user information');
       
     } catch (error) {
       console.error('❌ Failed to start Axie Studio session:', error);
@@ -273,7 +332,7 @@ const HomePage: React.FC = () => {
         setTimeout(() => startSession(), 1000);
       }
     }
-  }, [agentId, conversation, connectionAttempts, userInfo]);
+  }, [agentId, conversation, connectionAttempts]);
 
   // Optimized session end with cleanup
   const handleEndSession = useCallback(async () => {
@@ -287,7 +346,7 @@ const HomePage: React.FC = () => {
     } finally {
       setIsSecureConnection(false);
       setConnectionAttempts(0);
-      setUserInfo(null);
+      // Don't clear userInfo - keep it stored locally
       setIsStartingCall(false);
     }
   }, [conversation]);
@@ -329,8 +388,8 @@ const HomePage: React.FC = () => {
 
   const { isConnected, isConnecting } = connectionStatus;
 
-  // Show form if user hasn't submitted info yet
-  if (!userInfo && !isConnected) {
+  // Show form if user hasn't submitted info yet and not connected
+  if (!userInfo && !isConnected && !isStartingCall) {
     return (
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8">
         <UserInfoForm 
