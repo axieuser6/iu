@@ -188,7 +188,6 @@ const HomePage: React.FC = () => {
     console.log('📤 Returning to agent:', response);
     return response;
   }, [sendToWebhook]);
-    }
 
 
   // Memoized agent ID with validation
