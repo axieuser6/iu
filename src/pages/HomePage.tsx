@@ -223,22 +223,26 @@ const HomePage: React.FC = () => {
       console.log('✅ User info sent to webhook');
     } catch (error) {
       console.error('❌ Failed to send user info to webhook:', error);
+      // Don't fail the call if webhook fails
     }
     
     // Check microphone permission first
     if (!hasPermission) {
       await requestMicrophonePermission();
-      if (!hasPermission) {
-        setIsStartingCall(false);
-        return;
-      }
+      // Wait a moment for permission state to update
+      setTimeout(async () => {
+        if (!hasPermission) {
+          setIsStartingCall(false);
+          return;
+        }
+        await startSession();
+      }, 100);
+    } else {
+      await startSession();
     }
-    
-    // Start the session
-    await startSession();
-  }, [hasPermission, requestMicrophonePermission]);
+  }, [hasPermission, requestMicrophonePermission, startSession]);
 
-  // Enhanced session management
+  // Enhanced session management with better error handling
   const startSession = useCallback(async () => {
     if (!agentId) {
       console.error('❌ Cannot start session: Axie Studio Agent ID missing');
@@ -246,7 +250,13 @@ const HomePage: React.FC = () => {
       return;
     }
 
-    console.log('🚀 Starting secure session...');
+    if (!userInfo) {
+      console.error('❌ Cannot start session: User info missing');
+      setIsStartingCall(false);
+      return;
+    }
+
+    console.log('🚀 Starting secure session with user info:', userInfo);
     
     try {
       const sessionPromise = conversation.startSession({
@@ -261,7 +271,7 @@ const HomePage: React.FC = () => {
 
       await Promise.race([sessionPromise, timeoutPromise]);
       console.log('✅ Axie Studio session started successfully');
-      console.log('🔧 Agent can now call get_firstandlastname and get_email tools to retrieve user information');
+      console.log('🔧 Agent can now call get_firstandlastname, get_email, and get_info tools');
       
     } catch (error) {
       console.error('❌ Failed to start Axie Studio session:', error);
@@ -270,12 +280,12 @@ const HomePage: React.FC = () => {
       // Auto-retry on failure
       if (connectionAttempts < RETRY_ATTEMPTS) {
         setConnectionAttempts(prev => prev + 1);
-        setTimeout(() => startSession(), 1000);
+        setTimeout(() => startSession(), 2000);
       }
     }
   }, [agentId, conversation, connectionAttempts, userInfo]);
 
-  // Optimized session end with cleanup
+  // Optimized session end with cleanup but preserve user info
   const handleEndSession = useCallback(async () => {
     console.log('🛑 Ending Axie Studio session...');
     
@@ -287,10 +297,6 @@ const HomePage: React.FC = () => {
     } finally {
       setIsSecureConnection(false);
       setConnectionAttempts(0);
-      setUserInfo(null);
-      setIsStartingCall(false);
-    }
-  }, [conversation]);
 
   // Check initial permissions on mount
   useEffect(() => {
@@ -330,7 +336,7 @@ const HomePage: React.FC = () => {
   const { isConnected, isConnecting } = connectionStatus;
 
   // Show form if user hasn't submitted info yet
-  if (!userInfo && !isConnected) {
+  if (!userInfo) {
     return (
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8">
         <UserInfoForm 
@@ -353,7 +359,7 @@ const HomePage: React.FC = () => {
             isSpeaking={conversation.isSpeaking}
             hasPermission={hasPermission}
             connectionAttempts={connectionAttempts}
-            onCallClick={handleEndSession}
+            onCallClick={isConnected ? handleEndSession : startSession}
           />
 
           <StatusIndicators
