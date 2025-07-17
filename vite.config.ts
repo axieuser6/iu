@@ -23,7 +23,7 @@ export default defineConfig({
     },
   },
   server: {
-    https: false, // Disable HTTPS in development to avoid certificate issues
+    https: true, // Enable HTTPS for WebRTC connections
     headers: {
       'Cross-Origin-Embedder-Policy': 'credentialless',
       'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
